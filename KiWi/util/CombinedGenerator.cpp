@@ -1,0 +1,72 @@
+
+
+#include "CombinedGenerator.h"
+#include "UniqueRandomIntGenerator.h"
+
+namespace util
+{
+
+	CombinedGenerator::CombinedGenerator(std::vector<Integer> &prefixValues)
+	{
+		assert(prefixValues.size() > 0);
+
+		prefixes = std::vector<Integer>(prefixValues.size());
+		suffixMap = std::unordered_map<>(prefixValues.size());
+		random = new Random();
+
+		for (auto val : prefixValues)
+		{
+			prefixes.push_back(val);
+			UniqueRandomIntGenerator tempVar(0, 2);
+			suffixMap.emplace(val, &tempVar);
+		}
+
+		idx = prefixes.size() - 1;
+	}
+
+	bool CombinedGenerator::hasNext()
+	{
+		return idx >= 0;
+	}
+
+	int CombinedGenerator::next()
+	{
+		int randIdx = random->nextInt(idx + 1);
+		Integer prefix = prefixes[randIdx];
+
+		UniqueRandomIntGenerator *gen = suffixMap[prefix];
+		int suffix = gen->next();
+
+		if (!gen->hasNext())
+		{
+			prefixes[randIdx] = prefixes[idx];
+			prefixes[idx] = prefix;
+			idx--;
+		}
+
+		return combineNumber(prefix, suffix);
+	}
+
+	int CombinedGenerator::getShift()
+	{
+		return shift;
+	}
+
+	void CombinedGenerator::reset()
+	{
+		for (auto gen : suffixMap)
+		{
+			gen->second.reset();
+		}
+
+		idx = prefixes.size() - 1;
+	}
+
+	int CombinedGenerator::combineNumber(int prefix, int suffix)
+	{
+		int num = prefix << shift;
+		num = num | suffix;
+
+		return num;
+	}
+}

@@ -1,0 +1,34 @@
+*.o
+*.a
+.cproject
+.project
+*.exe
+*.settings
+*.prefs
+*.mk
+*.d
+
+### Xcode ###
+## Build generated
+Debug/
+DerivedData/
+
+## Various settings
+.DS_Store
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+## Other
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+
+### Xcode Patch ###
+*.xcodeproj/*
