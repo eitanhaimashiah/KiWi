@@ -5,8 +5,6 @@
 
 namespace kiwi
 {
-	using sun::reflect::generics::reflectiveObjects::NotImplementedException;
-
 	ChunkCell::ChunkCell() : ChunkCell(Cell::Empty, nullptr)
 	{
 	}

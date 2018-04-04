@@ -1,9 +1,8 @@
+#ifndef DebugStats_h
+#define DebugStats_h
+
 namespace kiwi
 {
-
-	/// <summary>
-	/// Created by dbasin on 1/21/16.
-	/// </summary>
 	class DebugStats
 	{
 	public:
@@ -29,5 +28,6 @@ namespace kiwi
 		long long nulItemsCount = 0;
 		long long removedItems = 0;
 	};
-
 }
+
+#endif /* DebugStats_h */

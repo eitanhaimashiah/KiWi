@@ -1,12 +1,10 @@
-
-
 #include "ChunkInt.h"
 
 namespace kiwi
 {
 
-java::util::concurrent::atomic::AtomicInteger *ChunkInt::nextChunk;
-std::vector<ChunkInt*> ChunkInt::chunks;
+    std::atomic<int> nextChunk;
+    std::vector<ChunkInt> chunks;
 
 	void ChunkInt::setPoolSize(int numChunks)
 	{
@@ -18,10 +16,10 @@ std::vector<ChunkInt*> ChunkInt::chunks;
 	{
 		if (chunks.size() > 0)
 		{
-			nextChunk = new AtomicInteger(0);
+			nextChunk = std::atomic<int>(0);
 			for (int i = 0; i < chunks.size(); ++i)
 			{
-				chunks[i] = new ChunkInt(nullptr, nullptr);
+				chunks[i] = ChunkInt(nullptr, nullptr);
 			}
 		}
 	}
@@ -30,7 +28,7 @@ std::vector<ChunkInt*> ChunkInt::chunks;
 	{
 	}
 
-	ChunkInt::ChunkInt(Integer minKey, ChunkInt *creator) : Chunk<Integer,Integer>(minKey, DATA_SIZE, creator)
+	ChunkInt::ChunkInt(Integer minKey, ChunkInt *creator) : Chunk<int,int>(minKey, DATA_SIZE, creator)
 	{
 	}
 

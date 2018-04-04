@@ -1,12 +1,6 @@
-#pragma once
+#ifndef tangible_filesystem_h
+#define tangible_filesystem_h
 
-//----------------------------------------------------------------------------------------
-//	Copyright © 2007 - 2018 Tangible Software Solutions Inc.
-//	This class can be used by anyone provided that the copyright notice remains intact.
-//
-//	This class is used to replace some Java file and folder method calls
-//	with std::filesystem method calls.
-//----------------------------------------------------------------------------------------
 #include <string>
 #include <filesystem>
 
@@ -59,3 +53,5 @@ private:
 		return std::filesystem::path(&path[0]);
 	}
 };
+
+#endif /* tangible_filesystem_h */

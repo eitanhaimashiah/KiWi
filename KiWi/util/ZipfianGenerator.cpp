@@ -2,13 +2,10 @@
 
 #include "ZipfianGenerator.h"
 #include "Utils.h"
-#include "Pair.h"
 #include "ScrambledZipfianGenerator.h"
 
 namespace util
 {
-	using sun::reflect::generics::reflectiveObjects::NotImplementedException;
-
 	ZipfianGenerator::ZipfianGenerator(long long _items) : ZipfianGenerator(0,_items - 1)
 	{
 	}
@@ -111,7 +108,7 @@ namespace util
 					//the zeta sequence terms for the items that went away. This would be faster than recomputing from scratch when the number of items
 					//decreases
 
-					System::err::println(L"WARNING: Recomputing Zipfian distribtion. This is slow and should be avoided. (itemcount=" + std::to_wstring(itemcount) + L" countforzeta=" + std::to_wstring(countforzeta) + L")");
+                    std::cout << ("WARNING: Recomputing Zipfian distribtion. This is slow and should be avoided. (itemcount=" + std::to_string(itemcount) + " countforzeta=" + std::to_string(countforzeta) + ")\n");
 
 					zetan = zeta(itemcount,theta);
 					eta = (1 - std::pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
@@ -119,7 +116,7 @@ namespace util
 			}
 		}
 
-		double u = Utils::random()->nextDouble();
+		double u = Utils::nextDouble();
 		double uz = u*zetan;
 
 		if (uz < 1.0)
@@ -142,7 +139,7 @@ namespace util
 		return static_cast<int>(nextLong(items));
 	}
 
-	Pair<Integer, Integer> *ZipfianGenerator::nextInterval()
+    std::pair<int, int> ZipfianGenerator::nextInterval()
 	{
 		throw NotImplementedException();
 	}
@@ -152,13 +149,9 @@ namespace util
 		return nextLong(items);
 	}
 
-	void ZipfianGenerator::main(std::vector<std::wstring> &args)
-	{
-		new ZipfianGenerator(ScrambledZipfianGenerator::ITEM_COUNT);
-	}
 
 	double ZipfianGenerator::mean()
 	{
-		throw UnsupportedOperationException(L"@todo implement ZipfianGenerator.mean()");
+		throw UnsupportedOperationException("@todo implement ZipfianGenerator.mean()");
 	}
 }

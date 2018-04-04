@@ -1,36 +1,37 @@
-
-
+#include <vector>
 #include "CounterGenerator.h"
-#include "Pair.h"
 
 namespace util
 {
-	using sun::reflect::generics::reflectiveObjects::NotImplementedException;
-
-	CounterGenerator::CounterGenerator(int countstart) : counter(new AtomicInteger(countstart))
+	CounterGenerator::CounterGenerator(int countstart) : counter(countstart)
 	{
-		setLastInt(counter->get() - 1);
+		setLastInt(counter.load() - 1);
 	}
-
+    
+    CounterGenerator::CounterGenerator(CounterGenerator const &other) : counter(other.counter.load())
+    {
+        setLastInt(counter.load() - 1);
+    }
+    
 	int CounterGenerator::nextInt()
 	{
-		int ret = counter->getAndIncrement();
+        int ret = counter++;
 		setLastInt(ret);
 		return ret;
 	}
 
-	Pair<Integer, Integer> *CounterGenerator::nextInterval()
+    std::pair<int, int> CounterGenerator::nextInterval()
 	{
 		throw NotImplementedException();
 	}
 
 	int CounterGenerator::lastInt()
 	{
-					return counter->get() - 1;
+        return counter.load() - 1;
 	}
 
 	double CounterGenerator::mean()
 	{
-		throw UnsupportedOperationException(L"Can't compute mean of non-stationary distribution!");
+		throw UnsupportedOperationException("Can't compute mean of non-stationary distribution!");
 	}
 }

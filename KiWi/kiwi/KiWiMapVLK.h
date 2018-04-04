@@ -1,30 +1,23 @@
+#ifndef KiWiMapVLK_h
+#define KiWiMapVLK_h
+
 #include <unordered_map>
 #include <vector>
 #include "exceptionhelper.h"
-
-//JAVA TO C++ CONVERTER NOTE: Forward class declarations:
-namespace kiwi { template<typename Ktypename V>class KiWi; }
+#include "KiWi.h"
 
 namespace kiwi
 {
-
-
-
 	/// <summary>
 	/// Created by msulamy on 7/27/15.
 	/// </summary>
 	class KiWiMapVLK : public CompositionalMap<Integer, Integer>
 	{
-		/// <summary>
-		///*************	Constants			************** </summary>
-
-		/// <summary>
-		///*************	Members				************** </summary>
+    /***************	Members				***************/
 	private:
 		KiWi<Cell*, Cell*> *kiwi;
 
-		/// <summary>
-		///*************	Constructors		************** </summary>
+    /***************	Constructors		***************/
 	public:
 		virtual ~KiWiMapVLK()
 		{
@@ -33,8 +26,7 @@ namespace kiwi
 
 		KiWiMapVLK();
 
-		/// <summary>
-		///*************	Methods				************** </summary>
+    /***************	Methods				***************/
 
 		Integer putIfAbsent(Integer k, Integer v) override;
 
@@ -87,3 +79,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* KiWiMapVLK_h */

@@ -1,3 +1,6 @@
+#ifndef KiWiMapChunkProf_h
+#define KiWiMapChunkProf_h
+
 #include "KiWiMap.h"
 #include <string>
 #include "exceptionhelper.h"
@@ -9,11 +12,6 @@ namespace kiwi { class DebugStats; }
 
 namespace kiwi
 {
-
-
-	/// <summary>
-	/// Created by dbasin on 1/24/16.
-	/// </summary>
 	class KiWiMapChunkProf : public KiWiMap
 	{
 
@@ -60,3 +58,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* KiWiMapChunkProf_h */

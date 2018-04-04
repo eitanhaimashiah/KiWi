@@ -1,14 +1,13 @@
+#ifndef ChunkCell_h
+#define ChunkCell_h
+
 #include <vector>
 #include "exceptionhelper.h"
-
-//JAVA TO C++ CONVERTER NOTE: Forward class declarations:
-namespace kiwi { class Cell; }
+#include "Cell.h"
+#include "Chunk.h"
 
 namespace kiwi
 {
-
-
-
 	class ChunkCell : public Chunk<Cell*, Cell*>
 	{
 	private:
@@ -31,3 +30,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* ChunkCell_h */

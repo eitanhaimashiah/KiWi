@@ -1,11 +1,14 @@
+#ifndef Parameters_h
+#define Parameters_h
+
 #include <string>
 #include <vector>
+#include "../util/CombinedGenerator.h"
+#include "../util/IntegerGenerator.h"
+#include "../util/ZipfianGenerator.h"
 
 namespace kiwi
 {
-
-
-
 	/// <summary>
 	/// Parameters of the Java version of the 
 	/// Synchrobench benchmark.
@@ -293,3 +296,5 @@ public:
 	};
 
 }
+
+#endif /* Parameters_h */

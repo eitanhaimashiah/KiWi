@@ -1,11 +1,6 @@
-#pragma once
+#ifndef stringbuilder_h
+#define stringbuilder_h
 
-//----------------------------------------------------------------------------------------
-//	Copyright © 2007 - 2018 Tangible Software Solutions Inc.
-//	This class can be used by anyone provided that the copyright notice remains intact.
-//
-//	This class is used to replace the Java StringBuilder in native C++.
-//----------------------------------------------------------------------------------------
 #include <string>
 #include <sstream>
 
@@ -106,3 +101,6 @@ private:
 		return ss.str();
 	}
 };
+
+#endif /* stringbuilder_h */
+

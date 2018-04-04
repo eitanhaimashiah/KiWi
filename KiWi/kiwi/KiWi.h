@@ -1,3 +1,6 @@
+#ifndef KiWi_h
+#define KiWi_h
+
 #include "Parameters.h"
 #include "MultiChunkIterator.h"
 #include <unordered_map>
@@ -10,7 +13,6 @@
 
 namespace kiwi
 {
-
 	using kiwi::ThreadData::ScanData;
 
 
@@ -19,8 +21,7 @@ namespace kiwi
 	{
 		static_assert(std::is_base_of<Comparable<? super K>, K>::value, L"K must inherit from Comparable<? super K>");
 
-		/// <summary>
-		///************* Constants ************** </summary>
+    /*************** Constants ***************/
 	public:
 //JAVA TO C++ CONVERTER TODO TASK: Native C++ does not allow initialization of static non-const/integral fields in their declarations - choose the conversion option for separate .h and .cpp files:
 		static int MAX_THREADS = 32;
@@ -28,8 +29,7 @@ namespace kiwi
 //JAVA TO C++ CONVERTER TODO TASK: Native C++ does not allow initialization of static non-const/integral fields in their declarations - choose the conversion option for separate .h and .cpp files:
 		static int RebalanceSize = 2;
 
-		/// <summary>
-		///************* Members ************** </summary>
+    /*************** Members ***************/
 	private:
 		ConcurrentSkipListMap<K, Chunk<K, V>*> *const skiplist; // skiplist of chunks for fast navigation
 	protected:
@@ -39,8 +39,7 @@ namespace kiwi
 		std::vector<ScanData*> const scanArray;
 
 
-		/// <summary>
-		///************* Constructors ************** </summary>
+    /*************** Constructors ***************/
 	public:
 		virtual ~KiWi()
 		{
@@ -71,8 +70,7 @@ namespace kiwi
 			}
 		}
 
-		/// <summary>
-		///************* Methods ************** </summary>
+        /*************** Methods ***************/
 
 		static int pad(int idx)
 		{
@@ -594,8 +592,9 @@ namespace kiwi
 			lastChild->next.compareAndSet(nullptr, nextToLast, false, false);
 		}
 
-		/// <summary>
-		/// publish data into thread array - use null to clear * </summary>
+		/**
+         * publish data into thread array - use null to clear 
+         */
 		void publishScan(ScanData *data)
 		{
 			// get index of current thread
@@ -751,9 +750,9 @@ namespace kiwi
 
 
 
-			std::wcout << L"Number of chunks: " << chunks.size() << std::endl;
-			std::wcout << L"Total number of elements: " << total << std::endl;
-			std::wcout << L"Total number of null items: " << nullItems << std::endl;
+			std::cout << "Number of chunks: " << chunks.size() << std::end;
+			std::cout << "Total number of elements: " << total << std::end;
+			std::cout << "Total number of null items: " << nullItems << std::end;
 			return duplicates;
 		}
 
@@ -761,3 +760,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* KiWi_h */

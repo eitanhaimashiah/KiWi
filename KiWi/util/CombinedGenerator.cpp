@@ -1,18 +1,14 @@
-
-
 #include "CombinedGenerator.h"
-#include "UniqueRandomIntGenerator.h"
 
 namespace util
 {
 
-	CombinedGenerator::CombinedGenerator(std::vector<Integer> &prefixValues)
+	CombinedGenerator::CombinedGenerator(std::vector<int> &prefixValues)
 	{
 		assert(prefixValues.size() > 0);
 
 		prefixes = std::vector<Integer>(prefixValues.size());
 		suffixMap = std::unordered_map<>(prefixValues.size());
-		random = new Random();
 
 		for (auto val : prefixValues)
 		{
@@ -31,7 +27,7 @@ namespace util
 
 	int CombinedGenerator::next()
 	{
-		int randIdx = random->nextInt(idx + 1);
+        int randIdx = Utils::nextInt(idx + 1);
 		Integer prefix = prefixes[randIdx];
 
 		UniqueRandomIntGenerator *gen = suffixMap[prefix];

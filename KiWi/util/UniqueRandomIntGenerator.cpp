@@ -1,34 +1,29 @@
-
-
 #include "UniqueRandomIntGenerator.h"
 
 namespace util
 {
-
 	UniqueRandomIntGenerator::UniqueRandomIntGenerator(int from, int to)
 	{
-		values = std::vector<Integer>(to - from + 1);
+		values = std::vector<int>(to - from + 1);
 		for (int i = from; i < to; ++i)
 		{
 			values.push_back(i);
 		}
 
-		idx = values.size() - 1;
+		idx = static_cast<int>(values.size() - 1);
 	}
 
-	UniqueRandomIntGenerator::UniqueRandomIntGenerator(Set<Integer> *sourceValues)
+	UniqueRandomIntGenerator::UniqueRandomIntGenerator(std::set<int> &sourceValues)
 	{
-		assert(sourceValues != nullptr);
-
-		values = std::vector<Integer>(sourceValues->size());
+		values = std::vector<int>(sourceValues.size());
 
 		for (auto val : sourceValues)
 		{
 			values.push_back(val);
 		}
 
-		idx = values.size() - 1;
-	}
+        idx = static_cast<int>(values.size() - 1);
+    }
 
 	bool UniqueRandomIntGenerator::hasNext()
 	{
@@ -41,9 +36,9 @@ namespace util
 		{
 			return -1;
 		}
-		int randIdx = rand->nextInt(idx + 1);
+        int randIdx = Utils::nextInt(idx + 1);
 
-		Integer nextVal = values[randIdx];
+		int nextVal = values[randIdx];
 
 		//swap values here
 		values[randIdx] = values[idx];
@@ -57,7 +52,7 @@ namespace util
 
 	void UniqueRandomIntGenerator::reset()
 	{
-		idx = values.size() - 1;
+        idx = static_cast<int>(values.size() - 1);
 	}
 
 	int UniqueRandomIntGenerator::last()
@@ -70,7 +65,7 @@ namespace util
 		return values[last];
 	}
 
-	std::vector<Integer> UniqueRandomIntGenerator::getValues()
+	std::vector<int> &UniqueRandomIntGenerator::getValues()
 	{
 		return values;
 	}

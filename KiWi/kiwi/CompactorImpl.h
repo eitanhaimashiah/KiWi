@@ -1,3 +1,6 @@
+#ifndef CompactorImpl_h
+#define CompactorImpl_h
+
 #include "Compactor.h"
 #include <vector>
 #include <list>
@@ -5,12 +8,6 @@
 
 namespace kiwi
 {
-
-
-	/// <summary>
-	/// Created by dbasin on 12/1/15.
-	/// </summary>
-
 	template<typename K, typename V>
 	class CompactorImpl : public Compactor<K, V>
 	{
@@ -121,6 +118,6 @@ namespace kiwi
 		}
 
 	};
-
-
 }
+
+#endif /* CompactorImpl_h */

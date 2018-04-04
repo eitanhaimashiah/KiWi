@@ -2,8 +2,8 @@
 
 namespace kiwi
 {
-    std::vector<char> v(0);
-    Cell *const Cell::Empty = new Cell(v, 0, 0);
+    std::vector<char> v = std::vector<char>(0);
+    Cell const Cell::Empty (v, 0, 0);
 
 	Cell::Cell(std::vector<char> &bytes, int off, int len) : bytes(bytes), offset(off), length(len)
 	{

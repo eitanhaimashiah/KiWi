@@ -1,20 +1,14 @@
+#ifndef MultiChunkIterator_h
+#define MultiChunkIterator_h
+
 #include <vector>
 #include <stdexcept>
-#include <type_traits>
 
 namespace kiwi
 {
-
-
-	/// <summary>
-	/// Created by dbasin on 11/30/15.
-	/// Iterator used to iterate over items of multiple chunks.
-	/// </summary>
 	template<typename K, typename V>
 	class MultiChunkIterator
 	{
-		static_assert(std::is_base_of<Comparable<? super K>, K>::value, L"K must inherit from Comparable<? super K>");
-
 	private:
 		Chunk<K, V> *first;
 		Chunk<K, V> *last;
@@ -191,3 +185,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* MultiChunkIterator_h */

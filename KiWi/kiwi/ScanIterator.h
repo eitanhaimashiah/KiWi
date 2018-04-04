@@ -1,3 +1,6 @@
+#ifndef ScanIterator_h
+#define ScanIterator_h
+
 #include "ThreadData.h"
 #include "exceptionhelper.h"
 #include <type_traits>
@@ -258,3 +261,6 @@ namespace kiwi
 	};
 
 }
+
+#endif /* ScanIterator_h */
+

@@ -1,5 +1,5 @@
-#ifndef GALOIS_WORKLIST_KIWI_CHUNK_H
-#define GALOIS_WORKLIST_KIWI_CHUNK_H
+#ifndef Chunk_h
+#define Chunk_h
 
 #include <atomic>
 #include <map>
@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include "exceptionhelper.h"
 #include "ThreadData.h"
+#include "Rebalancer.h"
+#include "../util/MarkableReference.h"
 
 // Forward class declarations
 namespace kiwi { class Statistics; }
@@ -18,13 +20,11 @@ namespace kiwi { class VersionsIterator; }
 
 namespace kiwi
 {
-
 	template<typename K, typename V>
 	class Chunk
 	{
-        using PutData = kiwi::ThreadData::PutData<K,V>;
         
-    // *************	Constants			**************
+    /***************	Constants			***************/
 	protected:
 		static constexpr int NONE = 0; // constant for "no version", "no index", etc. MUST BE 0!
 		static constexpr int FREEZE_VERSION = 1;
@@ -47,19 +47,18 @@ namespace kiwi
 		static constexpr int MAX_ITEMS = 4500;
 		static constexpr bool ALLOW_DUPS = true;
 
-    // *************	Members				**************
+    /***************	Members				***************/
 	//	static Unsafe *const unsafe;
 	private:
-		std::vector<int> const orderArray;  // array is initialized to 0, i.e., NONE - this is important!
-        std::atomic<int> * const orderIndex;    // points to next free index of order array
-        std::atomic<int> * const dataIndex;     // points to next free index of data array
+		std::vector<int> const orderArray;    // array is initialized to 0, i.e., NONE - this is important!
+        std::atomic<int> const orderIndex;    // points to next free index of order array
+        std::atomic<int> const dataIndex;     // points to next free index of data array
         
         Statistics *statistics;
         int orderIndexSerial = 0;
         int dataIndexSerial = 0;
-        PutData<K, V> p;
         
-        std::vector<PutData<K, V>*> putArray;
+        std::vector<ThreadData::PutData<K, V>*> putArray;
         static constexpr int PAD_SIZE = 100;
         
 	protected:
@@ -68,19 +67,14 @@ namespace kiwi
         
 	public:
 		K minKey; // minimal key that can be put in this chunk
-
-		AtomicMarkableReference<Chunk<K, V>*> *next;
-		AtomicReference<Rebalancer<K, V>*> *rebalancer;
+        std::atomic<MarkableReference<Chunk<K, V>>> next;
+		std::atomic<Rebalancer<K, V> *> rebalancer;
 
 		Chunk<K, V> *creator; // in split/compact process, represents parent of split (can be null!)
 		AtomicReference<std::vector<Chunk<K, V>*>> *children;
 
 		virtual ~Chunk()
 		{
-			delete orderIndex;
-			delete dataIndex;
-			delete next;
-			delete rebalancer;
 			delete creator;
 			delete children;
 			delete statistics;
@@ -1465,4 +1459,4 @@ namespace kiwi
 
 }
 
-#endif
+#endif /* Chunk_h */

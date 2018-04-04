@@ -1,28 +1,22 @@
+#ifndef UniqueRandomIntGenerator_h
+#define UniqueRandomIntGenerator_h
+
 #include <vector>
+#include <set>
+#include "Utils.h"
 
 namespace util
 {
-
-
-	/// <summary>
-	/// Created by dbasin on 7/7/16.
-	/// </summary>
 	class UniqueRandomIntGenerator
 	{
 	private:
-		std::vector<Integer> values;
+		std::vector<int> values;
 		int idx = 0;
-		Random *rand = new Random();
 
 	public:
-		virtual ~UniqueRandomIntGenerator()
-		{
-			delete rand;
-		}
-
 		UniqueRandomIntGenerator(int from, int to);
 
-		UniqueRandomIntGenerator(Set<Integer> *sourceValues);
+        UniqueRandomIntGenerator(std::set<int> &sourceValues);
 
 		virtual bool hasNext();
 
@@ -32,8 +26,10 @@ namespace util
 
 		virtual int last();
 
-		virtual std::vector<Integer> getValues();
+		virtual std::vector<int> &getValues();
 
 	};
 
 }
+
+#endif /* UniqueRandomIntGenerator_h */

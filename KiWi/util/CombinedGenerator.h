@@ -1,33 +1,26 @@
+#ifndef CombinedGenerator_h
+#define CombinedGenerator_h
+
 #include <unordered_map>
 #include <vector>
+#include "UniqueRandomIntGenerator.h"
+#include "Utils.h"
 
 //JAVA TO C++ CONVERTER NOTE: Forward class declarations:
 namespace util { class UniqueRandomIntGenerator; }
 
 namespace util
 {
-
-
-	/// <summary>
-	/// Created by dbasin on 7/7/16.
-	/// </summary>
-
 	class CombinedGenerator
 	{
 	private:
-		std::vector<Integer> prefixes;
-		std::unordered_map<Integer, UniqueRandomIntGenerator*> suffixMap;
+		std::vector<int> prefixes;
+		std::unordered_map<int, UniqueRandomIntGenerator*> suffixMap;
 		int idx = 0;
-		Random *random;
 		static constexpr int shift = 2;
 
 	public:
-		virtual ~CombinedGenerator()
-		{
-			delete random;
-		}
-
-		CombinedGenerator(std::vector<Integer> &prefixValues);
+		CombinedGenerator(std::vector<int> &prefixValues);
 
 		virtual bool hasNext();
 
@@ -40,6 +33,6 @@ namespace util
 	private:
 		int combineNumber(int prefix, int suffix);
 	};
-
-
 }
+
+#endif /* CombinedGenerator_h */

@@ -1,15 +1,13 @@
+#ifndef CompositionalMap_h
+#define CompositionalMap_h
+
 #include <unordered_map>
 #include <vector>
 
 namespace kiwi
 {
-
-
-	/*
+	/**
 	 * Compositional map interface
-	 * 
-	 * @author Vincent Gramoli
-	 *
 	 */
 	template<typename K, typename V>
 	class CompositionalMap : public std::unordered_map<K, V>
@@ -39,6 +37,6 @@ namespace kiwi
 
 		virtual int getRange(std::vector<K> &result, K min, K max) = 0;
 	};
-
-
 }
+
+#endif /* CompositionalMap_h */

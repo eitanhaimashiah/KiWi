@@ -1,5 +1,5 @@
-#ifndef GALOIS_WORKLIST_KIWI_THREADDATA_H
-#define GALOIS_WORKLIST_KIWI_THREADDATA_H
+#ifndef ThreadData_h
+#define ThreadData_h
 
 #include <atomic>
 #include "Chunk.h"
@@ -11,7 +11,7 @@ namespace kiwi
 		
 	public:
         // Thread data class for Scan operations
-		template<typename K, typename V>
+		template<typename K>
 		class ScanData;
 
         // Thread data class for Put operations
@@ -19,20 +19,19 @@ namespace kiwi
 		class PutData;
 	};
 
-    template<typename K, typename V>
+    template<typename K>
     class ThreadData::ScanData
 	{
 	public:
-		virtual ~ScanData()
-		{
-			delete version;
-		}
-
 		ScanData(K min, K max) : min(min), max(max) {}
 
-        std::atomic<int> *const version (Chunk::NONE);
+        std::atomic<int> const version (Chunk::NONE);
 		const K min;
 		const K max;
+        
+        static bool compare(ScanData<K> &o1, ScanData<K> &o2) {
+            return o2.version.load() - o1.version.load();
+        }
 
 	};
     
@@ -46,4 +45,4 @@ namespace kiwi
 	};
 }
 
-#endif
+#endif /* ThreadData */

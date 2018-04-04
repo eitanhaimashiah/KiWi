@@ -10,7 +10,7 @@
 
 ### Xcode ###
 ## Build generated
-Debug/
+build/
 DerivedData/
 
 ## Various settings

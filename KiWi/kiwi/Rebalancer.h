@@ -1,48 +1,31 @@
-#include "ScanIndex.h"
+#ifndef Rebalancer_h
+#define Rebalancer_h
+
 #include <vector>
 #include <list>
 #include <cmath>
 #include <stdexcept>
 #include "exceptionhelper.h"
-#include <type_traits>
+#include "ScanIndex.h"
+#include "Chunk.h"
+#include "KiWi.h"
 
 namespace kiwi
 {
-
-
-	/// <summary>
-	/// Created by dbasin on 11/24/15.
-	/// </summary>
 	template<typename K, typename V>
 	class Rebalancer
 	{
-		static_assert(std::is_base_of<Comparable<? super K>, K>::value, L"K must inherit from Comparable<? super K>");
-
-
 	public:
-//JAVA TO C++ CONVERTER TODO TASK: Native C++ does not allow initialization of static non-const/integral fields in their declarations - choose the conversion option for separate .h and .cpp files:
-		static double MAX_AFTER_MERGE_PART = 0.5;
+        static constexpr double MAX_AFTER_MERGE_PART = 0.5;
 
-		/// <summary>
-		///******** Policy ****************** </summary>
+    /******** Policy ******************/
 	public:
 		class Policy
 		{
-		private:
-			Rebalancer<K*, V*> *outerInstance;
-
-		public:
-			virtual ~Policy()
-			{
-				delete outerInstance;
-			}
-
-			Policy(Rebalancer<K, V> *outerInstance);
-
-			virtual Chunk<K*, V*> *findNextCandidate() = 0;
+			virtual Chunk<K, V> findNextCandidate() = 0;
 			virtual void updateRangeView() = 0;
-			virtual Chunk<K*, V*> *getFirstChunkInRange() = 0;
-			virtual Chunk<K*, V*> *getLastChunkInRange() = 0;
+			virtual Chunk<K, V> getFirstChunkInRange() = 0;
+			virtual Chunk<K, V> getLastChunkInRange() = 0;
 		};
 
 	public:
@@ -300,3 +283,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* Rebalancer_h */

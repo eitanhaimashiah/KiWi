@@ -1,3 +1,6 @@
+#ifndef Cell_h
+#define Cell_h
+
 #include <string>
 #include <vector>
 
@@ -7,7 +10,7 @@ namespace kiwi
 	class Cell
 	{
 	public:
-		static Cell *const Empty;
+		static Cell const Empty;
 
 	private:
 		std::vector<char> const bytes;
@@ -30,3 +33,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* Cell_h */

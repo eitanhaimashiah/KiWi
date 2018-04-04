@@ -1,30 +1,22 @@
+#ifndef KiWiMap_h
+#define KiWiMap_h
+
 #include "CompositionalMap.h"
 #include <unordered_map>
 #include <vector>
 
 namespace kiwi
 {
-
-
-
-	/// <summary>
-	/// Created by msulamy on 7/27/15.
-	/// </summary>
 	class KiWiMap : public CompositionalMap<Integer, Integer>
 	{
-		/// <summary>
-		///*************	Constants			************** </summary>
-
-		/// <summary>
-		///*************	Members				************** </summary>
+        /***************	Members				***************/
 	public:
 		static bool SupportScan;
 		static int RebalanceSize;
 
 		KiWi<Integer, Integer> *kiwi;
 
-		/// <summary>
-		///*************	Constructors		************** </summary>
+        /***************	Constructors		***************/
 		virtual ~KiWiMap()
 		{
 			delete kiwi;
@@ -32,60 +24,48 @@ namespace kiwi
 
 		KiWiMap();
 
-		/// <summary>
-		///*************	Methods				************** </summary>
+        /***************	Methods				***************/
 
-		/// <summary>
-		/// same as put - always puts the new value! even if the key is not absent, it is updated </summary>
+        /** same as put - always puts the new value! even if the key is not absent, it is updated */
 		Integer putIfAbsent(Integer k, Integer v) override;
 
-		/// <summary>
-		/// requires full scan() for atomic size() </summary>
+        /** requires full scan() for atomic size() */
 		int size() override;
 
-		/// <summary>
-		/// not implemented ATM - can be implemented with chunk.findFirst() </summary>
+        /** not implemented ATM - can be implemented with chunk.findFirst() */
 		bool isEmpty() override;
 
 		Integer get(void *o) override;
 
 		Integer put(Integer k, Integer v) override;
 
-		/// <summary>
-		/// same as put(key,null) - which signifies to KiWi that the item is removed </summary>
+        /** same as put(key,null) - which signifies to KiWi that the item is removed */
 		Integer remove(void *o) override;
 
 		int getRange(std::vector<Integer> &result, Integer min, Integer max) override;
 
-		/// <summary>
-		/// same as put(key,val) for each item </summary>
+        /** same as put(key,val) for each item */
 		template<typename T1, typename T1>
 //JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
 //ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
 		void putAll(std::unordered_map<T1> map);
 
-		/// <summary>
-		/// Same as get(key) != null * </summary>
+        /** Same as get(key) != null **/
 		bool containsKey(void *o) override;
 
-		/// <summary>
-		/// Clear is not really an option (can be implemented non-safe inside KiWi) - we just create new kiwi * </summary>
+        /** Clear is not really an option (can be implemented non-safe inside KiWi) - we just create new kiwi **/
 		void clear() override;
 
-		/// <summary>
-		/// Not implemented - can scan all & return keys * </summary>
+        /** Not implemented - can scan all & return keys **/
 		Set<Integer> *keySet() override;
 
-		/// <summary>
-		/// Not implemented - can scan all & return values * </summary>
+        /** Not implemented - can scan all & return values **/
 		Collection<Integer> *values() override;
 
-		/// <summary>
-		/// Not implemented - can scan all & create entries * </summary>
+        /** Not implemented - can scan all & create entries **/
 		Set<Entry<Integer, Integer>*> *entrySet() override;
 
-		/// <summary>
-		/// Not implemented - can scan all & search * </summary>
+        /** Not implemented - can scan all & search **/
 		bool containsValue(void *o) override;
 
 		virtual void compactAllSerial();
@@ -100,3 +80,5 @@ namespace kiwi
 	};
 
 }
+
+#endif /* KiWiMap_h */
