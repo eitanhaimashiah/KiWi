@@ -3,29 +3,15 @@
 
 #include <stdexcept>
 
-class IllegalStateException : public std::exception
-{
-private:
-    std::string msg;
-    
-public:
-    IllegalStateException(const std::string& message = "") : msg(message)
-    {
-    }
-    
-    const char * what() const throw()
-    {
-        return msg.c_str();
-    }
-};
+using namespace std;
 
-class NoSuchElementException : public std::exception
+class IllegalStateException : public exception
 {
 private:
-    std::string msg;
+    string msg;
     
 public:
-    NoSuchElementException(const std::string& message = "") : msg(message)
+    IllegalStateException(const string& message = "") : msg(message)
     {
     }
     
@@ -35,13 +21,29 @@ public:
     }
 };
 
-class NotImplementedException : public std::exception
+class NoSuchElementException : public exception
 {
 private:
-    std::string msg;
+    string msg;
+    
+public:
+    NoSuchElementException(const string& message = "") : msg(message)
+    {
+    }
+    
+    const char * what() const throw()
+    {
+        return msg.c_str();
+    }
+};
+
+class NotImplementedException : public exception
+{
+private:
+    string msg;
 
 public:
-    NotImplementedException(const std::string& message = "") : msg(message)
+    NotImplementedException(const string& message = "") : msg(message)
     {
     }
 
@@ -51,13 +53,13 @@ public:
     }
 };
 
-class UnsupportedOperationException : public std::exception
+class UnsupportedOperationException : public exception
 {
 private:
-    std::string msg;
+    string msg;
 
 public:
-    UnsupportedOperationException(const std::string& message = "") : msg(message)
+    UnsupportedOperationException(const string& message = "") : msg(message)
     {
     }
 

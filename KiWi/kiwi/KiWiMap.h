@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
+using namespace std;
+
 namespace kiwi
 {
 	class KiWiMap : public CompositionalMap<Integer, Integer>
@@ -42,13 +44,13 @@ namespace kiwi
         /** same as put(key,null) - which signifies to KiWi that the item is removed */
 		Integer remove(void *o) override;
 
-		int getRange(std::vector<Integer> &result, Integer min, Integer max) override;
+		int getRange(vector<Integer> &result, Integer min, Integer max) override;
 
         /** same as put(key,val) for each item */
 		template<typename T1, typename T1>
 //JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
 //ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-		void putAll(std::unordered_map<T1> map);
+		void putAll(unordered_map<T1> map);
 
         /** Same as get(key) != null **/
 		bool containsKey(void *o) override;

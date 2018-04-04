@@ -4,18 +4,18 @@ namespace util
 {
     int Utils::nextInt(int upper)
     {
-        static std::random_device rd;
-        static std::default_random_engine gen (rd());
-        static std::uniform_int_distribution<int> dis (0, upper-1);
+        static random_device rd;
+        static default_random_engine gen (rd());
+        static uniform_int_distribution<int> dis (0, upper-1);
         
         return dis(gen);
     }
 
     double Utils::nextDouble()
     {
-        static std::random_device rd;
-        static std::default_random_engine gen (rd());
-        static std::uniform_real_distribution<double> dis;
+        static random_device rd;
+        static default_random_engine gen (rd());
+        static uniform_real_distribution<double> dis;
         
         return dis(gen);
     }
@@ -39,7 +39,7 @@ namespace util
             hashval = hashval * FNV_prime_32;
             //hashval = hashval ^ octet;
         }
-        return std::abs(hashval);
+        return abs(hashval);
 	}
 
 	long long Utils::FNVhash64(long long val)
@@ -56,6 +56,6 @@ namespace util
             hashval = hashval * FNV_prime_64;
             //hashval = hashval ^ octet;
         }
-        return std::abs(hashval);
+        return abs(hashval);
 	}
 }

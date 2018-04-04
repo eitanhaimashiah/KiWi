@@ -3,12 +3,12 @@
 namespace util
 {
 
-	CombinedGenerator::CombinedGenerator(std::vector<int> &prefixValues)
+	CombinedGenerator::CombinedGenerator(vector<int> &prefixValues)
 	{
 		assert(prefixValues.size() > 0);
 
-		prefixes = std::vector<Integer>(prefixValues.size());
-		suffixMap = std::unordered_map<>(prefixValues.size());
+		prefixes = vector<Integer>(prefixValues.size());
+		suffixMap = unordered_map<>(prefixValues.size());
 
 		for (auto val : prefixValues)
 		{

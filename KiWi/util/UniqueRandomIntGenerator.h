@@ -5,18 +5,20 @@
 #include <set>
 #include "Utils.h"
 
+using namespace std;
+
 namespace util
 {
 	class UniqueRandomIntGenerator
 	{
 	private:
-		std::vector<int> values;
+		vector<int> values;
 		int idx = 0;
 
 	public:
 		UniqueRandomIntGenerator(int from, int to);
 
-        UniqueRandomIntGenerator(std::set<int> &sourceValues);
+        UniqueRandomIntGenerator(set<int> &sourceValues);
 
 		virtual bool hasNext();
 
@@ -26,7 +28,7 @@ namespace util
 
 		virtual int last();
 
-		virtual std::vector<int> &getValues();
+		virtual vector<int> &getValues();
 
 	};
 

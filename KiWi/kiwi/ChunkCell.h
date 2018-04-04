@@ -6,6 +6,8 @@
 #include "Cell.h"
 #include "Chunk.h"
 
+using namespace std;
+
 namespace kiwi
 {
 	class ChunkCell : public Chunk<Cell*, Cell*>
@@ -22,7 +24,7 @@ namespace kiwi
 		Cell *readKey(int orderIndex) override;
 		void *readData(int oi, int di) override;
 
-		int copyValues(std::vector<void*> &result, int idx, int myVer, Cell *min, Cell *max, SortedMap<Cell*, ThreadData::PutData<Cell*, Cell*>*> *items) override;
+		int copyValues(vector<void*> &result, int idx, int myVer, Cell *min, Cell *max, SortedMap<Cell*, PutData<Cell*, Cell*>*> *items) override;
 
 		int allocate(Cell *key, Cell *data) override;
 

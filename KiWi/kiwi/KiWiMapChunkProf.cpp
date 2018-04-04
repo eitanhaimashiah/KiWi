@@ -6,8 +6,8 @@
 namespace kiwi
 {
 
-const std::wstring KiWiMapChunkProf::profDirPath = std::wstring(L"./../output/data");
-const std::wstring KiWiMapChunkProf::profFileName = L"chunkStat.csv";
+const wstring KiWiMapChunkProf::profDirPath = wstring(L"./../output/data");
+const wstring KiWiMapChunkProf::profFileName = L"chunkStat.csv";
 
 	void KiWiMapChunkProf::trySnapshot()
 	{

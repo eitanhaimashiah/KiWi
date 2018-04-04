@@ -10,14 +10,14 @@ namespace util
 		lastint = last;
 	}
 
-	std::wstring IntegerGenerator::nextString()
+	wstring IntegerGenerator::nextString()
 	{
-		return L"" + std::to_wstring(nextInt());
+		return L"" + to_wstring(nextInt());
 	}
 
-	std::wstring IntegerGenerator::lastString()
+	wstring IntegerGenerator::lastString()
 	{
-		return L"" + std::to_wstring(lastInt());
+		return L"" + to_wstring(lastInt());
 	}
 
 	int IntegerGenerator::lastInt()

@@ -1,21 +1,14 @@
 #ifndef ScanIterator_h
 #define ScanIterator_h
 
-#include "ThreadData.h"
 #include "exceptionhelper.h"
-#include <type_traits>
+#include "PutData.h"
 
 namespace kiwi
 {
-
-	using kiwi::ThreadData::PutData;
-
-
 	template<typename K, typename V>
 	class ScanIterator : public Iterator<V>
 	{
-		static_assert(std::is_base_of<Comparable<? super K>, K>::value, L"K must inherit from Comparable<? super K>");
-
 	private:
 		const K maxKey; // max key (inclusive) for this scan - beyond it the iterator is finished
 		const int version; // version for this scan- larger versions are ignored

@@ -3,12 +3,12 @@
 namespace kiwi
 {
 
-    std::atomic<int> nextChunk;
-    std::vector<ChunkInt> chunks;
+    atomic<int> nextChunk;
+    vector<ChunkInt> chunks;
 
 	void ChunkInt::setPoolSize(int numChunks)
 	{
-		chunks = std::vector<ChunkInt*>(numChunks);
+		chunks = vector<ChunkInt*>(numChunks);
 
 	}
 
@@ -16,7 +16,7 @@ namespace kiwi
 	{
 		if (chunks.size() > 0)
 		{
-			nextChunk = std::atomic<int>(0);
+			nextChunk = atomic<int>(0);
 			for (int i = 0; i < chunks.size(); ++i)
 			{
 				chunks[i] = ChunkInt(nullptr, nullptr);
@@ -24,7 +24,7 @@ namespace kiwi
 		}
 	}
 
-	ChunkInt::ChunkInt() : ChunkInt(std::numeric_limits<int>::min(), nullptr)
+	ChunkInt::ChunkInt() : ChunkInt(numeric_limits<int>::min(), nullptr)
 	{
 	}
 
@@ -65,7 +65,7 @@ namespace kiwi
 		return dataArray[di];
 	}
 
-	int ChunkInt::copyValues(std::vector<void*> &result, int idx, int myVer, Integer min, Integer max, SortedMap<Integer, ThreadData::PutData<Integer, Integer>*> *items)
+	int ChunkInt::copyValues(vector<void*> &result, int idx, int myVer, Integer min, Integer max, SortedMap<Integer, PutData<Integer, Integer>*> *items)
 	{
 		int oi = 0;
 

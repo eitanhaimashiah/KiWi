@@ -4,6 +4,8 @@
 #include <vector>
 #include <stdexcept>
 
+using namespace std;
+
 namespace kiwi
 {
 	template<typename K, typename V>
@@ -35,11 +37,11 @@ namespace kiwi
 		/// </summary>
 		/// <param name="chunks"> - Range of chunks to be iterated </param>
 	public:
-		MultiChunkIterator(std::vector<Chunk<K, V>*> &chunks)
+		MultiChunkIterator(vector<Chunk<K, V>*> &chunks)
 		{
 			if (chunks.empty() || chunks.empty())
 			{
-				throw std::invalid_argument("Iterator should have at least one item");
+				throw invalid_argument("Iterator should have at least one item");
 			}
 			first = chunks[0];
 			last = chunks[chunks.size() - 1];
@@ -48,11 +50,11 @@ namespace kiwi
 			hasNextInChunk = iterCurrItem->hasNext();
 		}
 
-		MultiChunkIterator(int oi, std::vector<Chunk<K, V>*> &chunks)
+		MultiChunkIterator(int oi, vector<Chunk<K, V>*> &chunks)
 		{
 			if (chunks.empty() || chunks.empty())
 			{
-				throw std::invalid_argument("Iterator should have at least one item");
+				throw invalid_argument("Iterator should have at least one item");
 			}
 			first = chunks[0];
 			last = chunks[chunks.size() - 1];

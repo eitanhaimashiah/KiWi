@@ -10,6 +10,8 @@
 #include "Chunk.h"
 #include "KiWi.h"
 
+using namespace std;
+
 namespace kiwi
 {
 	template<typename K, typename V>
@@ -112,8 +114,8 @@ namespace kiwi
 		Chunk<K, V> *startChunk;
 		ChunkIterator<K, V> *chunkIterator;
 
-		AtomicReference<std::vector<Chunk<K, V>*>> *compactedChunks = new AtomicReference<std::vector<Chunk<K, V>*>>(nullptr);
-		AtomicReference<std::vector<Chunk<K, V>*>> *engagedChunks = new AtomicReference<std::vector<Chunk<K, V>*>>(nullptr);
+		AtomicReference<vector<Chunk<K, V>*>> *compactedChunks = new AtomicReference<vector<Chunk<K, V>*>>(nullptr);
+		AtomicReference<vector<Chunk<K, V>*>> *engagedChunks = new AtomicReference<vector<Chunk<K, V>*>>(nullptr);
 		AtomicBoolean *freezedItems = new AtomicBoolean(false);
 
 
@@ -125,7 +127,7 @@ namespace kiwi
 		{
 			if (chunk == nullptr || chunkIterator == nullptr)
 			{
-				throw std::invalid_argument("Rebalancer construction with null args");
+				throw invalid_argument("Rebalancer construction with null args");
 			}
 
 			nextToEngage = new AtomicReference<Chunk<K,V>>(chunk);
@@ -170,7 +172,7 @@ namespace kiwi
 			}
 
 			p->updateRangeView();
-			std::vector<Chunk<K, V>*> engaged = createEngagedList(p->getFirstChunkInRange());
+			vector<Chunk<K, V>*> engaged = createEngagedList(p->getFirstChunkInRange());
 
 			if (engagedChunks->compareAndSet(nullptr,engaged) && Parameters::countCompactions)
 			{
@@ -214,7 +216,7 @@ namespace kiwi
 			}
 
 			Compactor *c = new CompactorImpl();
-			std::vector<Chunk<K, V>*> compacted = c->compact(getEngagedChunks(),scanIndex);
+			vector<Chunk<K, V>*> compacted = c->compact(getEngagedChunks(),scanIndex);
 
 			// if fail here, another thread succeeded
 			compactedChunks->compareAndSet(nullptr,compacted);
@@ -237,7 +239,7 @@ namespace kiwi
 			return engagedChunks->get() != nullptr;
 		}
 
-		virtual std::vector<Chunk<K, V>*> getCompactedChunks()
+		virtual vector<Chunk<K, V>*> getCompactedChunks()
 		{
 			if (!isCompacted())
 			{
@@ -247,9 +249,9 @@ namespace kiwi
 			return compactedChunks->get();
 		}
 
-		virtual std::vector<Chunk<K, V>*> getEngagedChunks()
+		virtual vector<Chunk<K, V>*> getEngagedChunks()
 		{
-			std::vector<Chunk<K, V>*> engaged = engagedChunks->get();
+			vector<Chunk<K, V>*> engaged = engagedChunks->get();
 			if (engaged.empty())
 			{
 				throw IllegalStateException(L"Trying to get engaged before engagement stage completed");
@@ -260,10 +262,10 @@ namespace kiwi
 
 
 	private:
-		std::vector<Chunk<K, V>*> createEngagedList(Chunk<K, V> *firstChunkInRange)
+		vector<Chunk<K, V>*> createEngagedList(Chunk<K, V> *firstChunkInRange)
 		{
 			Chunk<K, V> *current = firstChunkInRange;
-			std::vector<Chunk<K, V>*> engaged = std::list<Chunk<K, V>*>();
+			vector<Chunk<K, V>*> engaged = list<Chunk<K, V>*>();
 
 			while (current != nullptr && current->isEngaged(this))
 			{

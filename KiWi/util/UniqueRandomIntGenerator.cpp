@@ -1,10 +1,12 @@
 #include "UniqueRandomIntGenerator.h"
 
+using namespace std;
+
 namespace util
 {
 	UniqueRandomIntGenerator::UniqueRandomIntGenerator(int from, int to)
 	{
-		values = std::vector<int>(to - from + 1);
+		values = vector<int>(to - from + 1);
 		for (int i = from; i < to; ++i)
 		{
 			values.push_back(i);
@@ -13,9 +15,9 @@ namespace util
 		idx = static_cast<int>(values.size() - 1);
 	}
 
-	UniqueRandomIntGenerator::UniqueRandomIntGenerator(std::set<int> &sourceValues)
+	UniqueRandomIntGenerator::UniqueRandomIntGenerator(set<int> &sourceValues)
 	{
-		values = std::vector<int>(sourceValues.size());
+		values = vector<int>(sourceValues.size());
 
 		for (auto val : sourceValues)
 		{
@@ -65,7 +67,7 @@ namespace util
 		return values[last];
 	}
 
-	std::vector<int> &UniqueRandomIntGenerator::getValues()
+	vector<int> &UniqueRandomIntGenerator::getValues()
 	{
 		return values;
 	}

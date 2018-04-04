@@ -13,7 +13,7 @@ namespace kiwi
 	{
 		if (startChunk == nullptr)
 		{
-			throw std::invalid_argument("startChunk is null in policy");
+			throw invalid_argument("startChunk is null in policy");
 		}
 		first = startChunk;
 		last = startChunk;
@@ -79,7 +79,7 @@ namespace kiwi
 		int totalItems = itemsInRange + newItems;
 
 
-		int chunksAfterMerge = static_cast<int>(std::ceil((static_cast<double>(totalItems)) / maxAfterMergeItems));
+		int chunksAfterMerge = static_cast<int>(ceil((static_cast<double>(totalItems)) / maxAfterMergeItems));
 
 		// if the the chosen chunk may reduce the number of chunks -- return it as candidate
 		if (chunksAfterMerge < chunksInRange + 1)

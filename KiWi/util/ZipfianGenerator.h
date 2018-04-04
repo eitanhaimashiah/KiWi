@@ -7,6 +7,8 @@
 #include "IntegerGenerator.h"
 #include "exceptionhelper.h"
 
+using namespace std;
+
 namespace util
 {
     /**
@@ -165,7 +167,7 @@ namespace util
          */
 		int nextInt() override;
 
-        std::pair<int, int> nextInterval() override;
+        pair<int, int> nextInterval() override;
 
         /**
          * Return the next value, skewed by the Zipfian distribution. The 0th item will be the most popular, followed by the 1st, followed

@@ -10,6 +10,8 @@
 //JAVA TO C++ CONVERTER NOTE: Forward class declarations:
 namespace kiwi { class DebugStats; }
 
+using namespace std;
+
 namespace kiwi
 {
 	class KiWiMapChunkProf : public KiWiMap
@@ -22,8 +24,8 @@ namespace kiwi
 		int snapCount = 0;
 		int totalOps = 0;
 
-		static const std::wstring profDirPath;
-		static const std::wstring profFileName;
+		static const wstring profDirPath;
+		static const wstring profFileName;
 
 	public:
 		BufferedWriter *writer = nullptr;

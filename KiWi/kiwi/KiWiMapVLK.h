@@ -6,6 +6,8 @@
 #include "exceptionhelper.h"
 #include "KiWi.h"
 
+using namespace std;
+
 namespace kiwi
 {
 	/// <summary>
@@ -42,9 +44,9 @@ namespace kiwi
 		template<typename T1, typename T1>
 //JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
 //ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-		void putAll(std::unordered_map<T1> map);
+		void putAll(unordered_map<T1> map);
 
-		int getRange(std::vector<Integer> &result, Integer min, Integer max) override;
+		int getRange(vector<Integer> &result, Integer min, Integer max) override;
 
 		/// <summary>
 		/// Same as get(key) != null * </summary>

@@ -4,13 +4,15 @@
 #include <unordered_map>
 #include <vector>
 
+using namespace std;
+
 namespace kiwi
 {
 	/**
 	 * Compositional map interface
 	 */
 	template<typename K, typename V>
-	class CompositionalMap : public std::unordered_map<K, V>
+	class CompositionalMap : public unordered_map<K, V>
 	{
 
 	public:
@@ -35,7 +37,7 @@ namespace kiwi
 
 		virtual int size() = 0;
 
-		virtual int getRange(std::vector<K> &result, K min, K max) = 0;
+		virtual int getRange(vector<K> &result, K min, K max) = 0;
 	};
 }
 

@@ -4,32 +4,34 @@
 #include <string>
 #include <sstream>
 
+using namespace std;
+
 class StringBuilder
 {
 private:
-	std::wstring privateString;
+	wstring privateString;
 
 public:
 	StringBuilder()
 	{
 	}
 
-	StringBuilder(const std::wstring &initialString)
+	StringBuilder(const wstring &initialString)
 	{
 		privateString = initialString;
 	}
 
-	StringBuilder(std::size_t capacity)
+	StringBuilder(size_t capacity)
 	{
 		ensureCapacity(capacity);
 	}
 
-	wchar_t charAt(std::size_t index)
+	wchar_t charAt(size_t index)
 	{
 		return privateString[index];
 	}
 
-	StringBuilder *append(const std::wstring &toAppend)
+	StringBuilder *append(const wstring &toAppend)
 	{
 		privateString += toAppend;
 		return this;
@@ -42,51 +44,51 @@ public:
 		return this;
 	}
 
-	StringBuilder *insert(std::size_t position, const std::wstring &toInsert)
+	StringBuilder *insert(size_t position, const wstring &toInsert)
 	{
 		privateString.insert(position, toInsert);
 		return this;
 	}
 
 	template<typename T>
-	StringBuilder *insert(std::size_t position, const T &toInsert)
+	StringBuilder *insert(size_t position, const T &toInsert)
 	{
 		privateString.insert(position, toString(toInsert));
 		return this;
 	}
 
-	std::wstring toString()
+	wstring toString()
 	{
 		return privateString;
 	}
 
-	std::size_t length()
+	size_t length()
 	{
 		return privateString.length();
 	}
 
-	void setLength(std::size_t newLength)
+	void setLength(size_t newLength)
 	{
 		privateString.resize(newLength);
 	}
 
-	std::size_t capacity()
+	size_t capacity()
 	{
 		return privateString.capacity();
 	}
 
-	void ensureCapacity(std::size_t minimumCapacity)
+	void ensureCapacity(size_t minimumCapacity)
 	{
 		privateString.reserve(minimumCapacity);
 	}
 
-	StringBuilder *remove(std::size_t start, std::size_t end)
+	StringBuilder *remove(size_t start, size_t end)
 	{
 		privateString.erase(start, end - start);
 		return this;
 	}
 
-	StringBuilder *replace(std::size_t start, std::size_t end, const std::wstring &newString)
+	StringBuilder *replace(size_t start, size_t end, const wstring &newString)
 	{
 		privateString.replace(start, end - start, newString);
 		return this;
@@ -94,9 +96,9 @@ public:
 
 private:
 	template<typename T>
-	static std::wstring toString(const T &subject)
+	static wstring toString(const T &subject)
 	{
-		std::wostringstream ss;
+		wostringstream ss;
 		ss << subject;
 		return ss.str();
 	}

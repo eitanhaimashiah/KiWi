@@ -48,12 +48,12 @@ namespace kiwi
 template<typename T1, typename T1>
 //JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
 //ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-	void KiWiMapVLK::putAll(std::unordered_map<T1> map)
+	void KiWiMapVLK::putAll(unordered_map<T1> map)
 	{
 		throw NotImplementedException();
 	}
 
-	int KiWiMapVLK::getRange(std::vector<Integer> &result, Integer min, Integer max)
+	int KiWiMapVLK::getRange(vector<Integer> &result, Integer min, Integer max)
 	{
 		throw NotImplementedException();
 	}
@@ -92,7 +92,7 @@ template<typename T1, typename T1>
 
 	Cell *KiWiMapVLK::cellFromInt(Integer n)
 	{
-		std::vector<char> b(4);
+		vector<char> b(4);
 
 		// write int data as bytes into data-array
 		b[0] = static_cast<char>(static_cast<int>(static_cast<unsigned int>(n) >> 24));
@@ -110,7 +110,7 @@ template<typename T1, typename T1>
 			return nullptr;
 		}
 
-		std::vector<char> b = c->getBytes();
+		vector<char> b = c->getBytes();
 		int off = c->getOffset();
 
 		int n = b[off + 0] << 24 | (b[off + 1] & 0xFF) << 16 | (b[off + 2] & 0xFF) << 8 | (b[off + 3] & 0xFF);

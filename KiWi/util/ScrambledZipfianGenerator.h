@@ -6,6 +6,8 @@
 #include <iostream>
 #include "ZipfianGenerator.h"
 
+using namespace std;
+
 namespace util
 {
     /**
@@ -58,7 +60,7 @@ namespace util
          */
 		int nextInt() override;
 
-        std::pair<int, int> nextInterval() override;
+        pair<int, int> nextInterval() override;
 
         /**
          * Return the next long in the sequence.

@@ -4,53 +4,55 @@
 #include <string>
 #include <filesystem>
 
+using namespace std;
+
 class FileSystem
 {
 public:
-	static void createDirectory(const std::wstring &path)
+	static void createDirectory(const wstring &path)
 	{
-		std::filesystem::create_directory(pathFromString(path));
+		filesystem::create_directory(pathFromString(path));
 	}
 
-	static bool pathExists(const std::wstring &path)
+	static bool pathExists(const wstring &path)
 	{
-		return std::filesystem::exists(pathFromString(path));
+		return filesystem::exists(pathFromString(path));
 	}
 
-	static bool fileExists(const std::wstring &path)
+	static bool fileExists(const wstring &path)
 	{
-		return std::filesystem::is_regular_file(pathFromString(path));
+		return filesystem::is_regular_file(pathFromString(path));
 	}
 
-	static bool directoryExists(const std::wstring &path)
+	static bool directoryExists(const wstring &path)
 	{
-		return std::filesystem::is_directory(pathFromString(path));
+		return filesystem::is_directory(pathFromString(path));
 	}
 
-	static std::wstring getFullPath(const std::wstring &path)
+	static wstring getFullPath(const wstring &path)
 	{
-		return std::filesystem::absolute(pathFromString(path)).generic_wstring();
+		return filesystem::absolute(pathFromString(path)).generic_wstring();
 	}
 
-	static std::wstring getFileName(const std::wstring &path)
+	static wstring getFileName(const wstring &path)
 	{
-		return std::filesystem::path(pathFromString(path)).filename().generic_wstring();
+		return filesystem::path(pathFromString(path)).filename().generic_wstring();
 	}
 
-	static std::wstring getDirectoryName(const std::wstring &path)
+	static wstring getDirectoryName(const wstring &path)
 	{
-		return std::filesystem::path(pathFromString(path)).parent_path().generic_wstring();
+		return filesystem::path(pathFromString(path)).parent_path().generic_wstring();
 	}
 
 	static wchar_t preferredSeparator()
 	{
-		return std::filesystem::path::preferred_separator;
+		return filesystem::path::preferred_separator;
 	}
 
 private:
-	static std::filesystem::path pathFromString(const std::wstring &path)
+	static filesystem::path pathFromString(const wstring &path)
 	{
-		return std::filesystem::path(&path[0]);
+		return filesystem::path(&path[0]);
 	}
 };
 

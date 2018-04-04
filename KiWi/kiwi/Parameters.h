@@ -7,6 +7,8 @@
 #include "../util/IntegerGenerator.h"
 #include "../util/ZipfianGenerator.h"
 
+using namespace std;
+
 namespace kiwi
 {
 	/// <summary>
@@ -87,7 +89,7 @@ namespace kiwi
 //			};
 
 private:
-			static std::vector<KeyDistribution> valueList;
+			static vector<KeyDistribution> valueList;
 
 			class StaticConstructor
 			{
@@ -104,11 +106,11 @@ public:
 
 			const InnerEnum innerEnumValue;
 private:
-			const std::wstring nameValue;
+			const wstring nameValue;
 			const int ordinalValue;
 			static int nextOrdinal;
 
-			KeyDistribution(const std::wstring &name, InnerEnum innerEnum);
+			KeyDistribution(const wstring &name, InnerEnum innerEnum);
 
 		public:
 			virtual util::IntegerGenerator *createGenerator(int min, int max) = 0;
@@ -248,13 +250,13 @@ public:
 
 			bool operator != (const KeyDistribution &other);
 
-			static std::vector<KeyDistribution> values();
+			static vector<KeyDistribution> values();
 
 			int ordinal();
 
-			std::wstring toString();
+			wstring toString();
 
-			static KeyDistribution valueOf(const std::wstring &name);
+			static KeyDistribution valueOf(const wstring &name);
 		};
 		enum class FillType
 		{
@@ -278,7 +280,7 @@ public:
 
 		static bool detailedStats;
 
-		static std::wstring benchClassName;
+		static wstring benchClassName;
 		static bool rangeQueries;
 		static int minRangeSize;
 		static int maxRangeSize;

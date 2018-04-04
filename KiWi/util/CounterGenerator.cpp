@@ -20,7 +20,7 @@ namespace util
 		return ret;
 	}
 
-    std::pair<int, int> CounterGenerator::nextInterval()
+    pair<int, int> CounterGenerator::nextInterval()
 	{
 		throw NotImplementedException();
 	}

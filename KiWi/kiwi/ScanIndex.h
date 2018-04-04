@@ -4,7 +4,9 @@
 #include <vector>
 #include <algorithm>
 #include <limits>
-#include "ThreadData.h"
+#include "ScanData.h"
+
+using namespace std;
 
 namespace kiwi
 {
@@ -12,9 +14,9 @@ namespace kiwi
 	class ScanIndex
 	{
 	private:
-		std::vector<int> scanVersions;
-		std::vector<int> fromKeys;
-		std::vector<int> toKeys;
+		vector<int> scanVersions;
+		vector<int> fromKeys;
+		vector<int> toKeys;
         
         int index = 0;
         int numOfVersions = 0;
@@ -26,18 +28,18 @@ namespace kiwi
 		bool isFirst = false;
 		bool isOutOfRange = false;
 
-		ScanIndex(std::vector<ThreadData::ScanData<K>> &scans, int currVersion, K minKey, K maxKey)
+		ScanIndex(vector<ScanData<K>> &scans, int currVersion, K minKey, K maxKey)
 		{
-			scanVersions = std::vector<int>(scans.size());
-			fromKeys = std::vector<int>(scans.size());
-			toKeys = std::vector<int>(scans.size());
+			scanVersions = vector<int>(scans.size());
+			fromKeys = vector<int>(scans.size());
+			toKeys = vector<int>(scans.size());
 
 			numOfVersions = 0;
 
-			min = (minKey != nullptr) ? static_cast<int>(minKey): std::numeric_limits<int>::min();
-			max = (maxKey != nullptr) ? static_cast<int>(maxKey): std::numeric_limits<int>::max();
+			min = (minKey != nullptr) ? static_cast<int>(minKey): numeric_limits<int>::min();
+			max = (maxKey != nullptr) ? static_cast<int>(maxKey): numeric_limits<int>::max();
 
-            std::sort(scans.begin(), scans.end(), ThreadData::ScanData<K>::compare);
+            sort(scans.begin(), scans.end(), ScanData<K>::compare);
 
 			for (auto sd : scans)
 			{

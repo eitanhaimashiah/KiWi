@@ -2,6 +2,8 @@
 #include "ZipfianGenerator.h"
 #include "Utils.h"
 
+using namespace std;
+
 namespace util
 {
     ScrambledZipfianGenerator::ScrambledZipfianGenerator(long long _items) : ScrambledZipfianGenerator(0,_items - 1) {}
@@ -27,7 +29,7 @@ namespace util
 		return static_cast<int>(nextLong());
 	}
 
-    std::pair<int, int> ScrambledZipfianGenerator::nextInterval()
+    pair<int, int> ScrambledZipfianGenerator::nextInterval()
 	{
 		throw NotImplementedException();
 	}

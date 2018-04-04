@@ -29,7 +29,7 @@ namespace kiwi
 		throw NotImplementedException();
 	}
 
-	int ChunkCell::copyValues(std::vector<void*> &result, int idx, int myVer, Cell *min, Cell *max, SortedMap<Cell*, ThreadData::PutData<Cell*, Cell*>*> *items)
+	int ChunkCell::copyValues(vector<void*> &result, int idx, int myVer, Cell *min, Cell *max, SortedMap<Cell*, PutData<Cell*, Cell*>*> *items)
 	{
 		throw NotImplementedException();
 	}

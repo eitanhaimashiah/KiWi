@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5114DBC92074D52700595DC0 /* PutData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5114DBC72074D52700595DC0 /* PutData.cpp */; };
+		5114DBCC2074D5E300595DC0 /* ScanData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5114DBCA2074D5E300595DC0 /* ScanData.cpp */; };
 		5184E01C20722CBB00AE16A2 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E01B20722CBB00AE16A2 /* main.cpp */; };
 		5184E06220722CEB00AE16A2 /* Cell.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E02320722CEB00AE16A2 /* Cell.cpp */; };
 		5184E06320722CEB00AE16A2 /* Chunk.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E02520722CEB00AE16A2 /* Chunk.cpp */; };
@@ -26,7 +28,6 @@
 		5184E07120722CEB00AE16A2 /* Rebalancer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E04220722CEB00AE16A2 /* Rebalancer.cpp */; };
 		5184E07220722CEB00AE16A2 /* ScanIndex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E04420722CEB00AE16A2 /* ScanIndex.cpp */; };
 		5184E07320722CEB00AE16A2 /* ScanIterator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E04620722CEB00AE16A2 /* ScanIterator.cpp */; };
-		5184E07420722CEB00AE16A2 /* ThreadData.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E04A20722CEB00AE16A2 /* ThreadData.cpp */; };
 		5184E07520722CEB00AE16A2 /* CombinedGenerator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E04D20722CEB00AE16A2 /* CombinedGenerator.cpp */; };
 		5184E07620722CEB00AE16A2 /* CounterGenerator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E04F20722CEB00AE16A2 /* CounterGenerator.cpp */; };
 		5184E07720722CEB00AE16A2 /* Generator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5184E05220722CEB00AE16A2 /* Generator.cpp */; };
@@ -51,6 +52,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5114DBC72074D52700595DC0 /* PutData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PutData.cpp; sourceTree = "<group>"; };
+		5114DBC82074D52700595DC0 /* PutData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PutData.h; sourceTree = "<group>"; };
+		5114DBCA2074D5E300595DC0 /* ScanData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ScanData.cpp; sourceTree = "<group>"; };
+		5114DBCB2074D5E300595DC0 /* ScanData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScanData.h; sourceTree = "<group>"; };
+		5114DBCE2075425300595DC0 /* makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = makefile; sourceTree = "<group>"; };
 		5184E01820722CBB00AE16A2 /* KiWi */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = KiWi; sourceTree = BUILT_PRODUCTS_DIR; };
 		5184E01B20722CBB00AE16A2 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		5184E02320722CEB00AE16A2 /* Cell.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Cell.cpp; sourceTree = "<group>"; };
@@ -91,8 +97,6 @@
 		5184E04720722CEB00AE16A2 /* ScanIterator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScanIterator.h; sourceTree = "<group>"; };
 		5184E04820722CEB00AE16A2 /* stringbuilder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stringbuilder.h; sourceTree = "<group>"; };
 		5184E04920722CEB00AE16A2 /* tangible_filesystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tangible_filesystem.h; sourceTree = "<group>"; };
-		5184E04A20722CEB00AE16A2 /* ThreadData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadData.cpp; sourceTree = "<group>"; };
-		5184E04B20722CEB00AE16A2 /* ThreadData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ThreadData.h; sourceTree = "<group>"; };
 		5184E04D20722CEB00AE16A2 /* CombinedGenerator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CombinedGenerator.cpp; sourceTree = "<group>"; };
 		5184E04E20722CEB00AE16A2 /* CombinedGenerator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CombinedGenerator.h; sourceTree = "<group>"; };
 		5184E04F20722CEB00AE16A2 /* CounterGenerator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CounterGenerator.cpp; sourceTree = "<group>"; };
@@ -145,6 +149,7 @@
 		5184E01A20722CBB00AE16A2 /* KiWi */ = {
 			isa = PBXGroup;
 			children = (
+				5114DBCE2075425300595DC0 /* makefile */,
 				5184E02220722CEB00AE16A2 /* kiwi */,
 				5184E04C20722CEB00AE16A2 /* util */,
 				5184E01B20722CBB00AE16A2 /* main.cpp */,
@@ -193,8 +198,10 @@
 				5184E04720722CEB00AE16A2 /* ScanIterator.h */,
 				5184E04820722CEB00AE16A2 /* stringbuilder.h */,
 				5184E04920722CEB00AE16A2 /* tangible_filesystem.h */,
-				5184E04A20722CEB00AE16A2 /* ThreadData.cpp */,
-				5184E04B20722CEB00AE16A2 /* ThreadData.h */,
+				5114DBC72074D52700595DC0 /* PutData.cpp */,
+				5114DBC82074D52700595DC0 /* PutData.h */,
+				5114DBCA2074D5E300595DC0 /* ScanData.cpp */,
+				5114DBCB2074D5E300595DC0 /* ScanData.h */,
 			);
 			path = kiwi;
 			sourceTree = "<group>";
@@ -285,7 +292,6 @@
 			files = (
 				5184E06720722CEB00AE16A2 /* Compactor.cpp in Sources */,
 				5184E07B20722CEB00AE16A2 /* SkewedLatestGenerator.cpp in Sources */,
-				5184E07420722CEB00AE16A2 /* ThreadData.cpp in Sources */,
 				5184E07E20722CEB00AE16A2 /* ZipfianGenerator.cpp in Sources */,
 				5184E07C20722CEB00AE16A2 /* UniqueRandomIntGenerator.cpp in Sources */,
 				5184E07820722CEB00AE16A2 /* IntegerGenerator.cpp in Sources */,
@@ -297,6 +303,7 @@
 				5184E07020722CEB00AE16A2 /* Parameters.cpp in Sources */,
 				5184E06C20722CEB00AE16A2 /* KiWiMap.cpp in Sources */,
 				5184E07320722CEB00AE16A2 /* ScanIterator.cpp in Sources */,
+				5114DBCC2074D5E300595DC0 /* ScanData.cpp in Sources */,
 				5184E06F20722CEB00AE16A2 /* MultiChunkIterator.cpp in Sources */,
 				5184E06920722CEB00AE16A2 /* CompositionalMap.cpp in Sources */,
 				5184E07D20722CEB00AE16A2 /* Utils.cpp in Sources */,
@@ -312,6 +319,7 @@
 				5184E07720722CEB00AE16A2 /* Generator.cpp in Sources */,
 				5184E06A20722CEB00AE16A2 /* DebugStats.cpp in Sources */,
 				5184E07A20722CEB00AE16A2 /* ScrambledZipfianGenerator.cpp in Sources */,
+				5114DBC92074D52700595DC0 /* PutData.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

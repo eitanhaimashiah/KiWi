@@ -2,14 +2,14 @@
 
 namespace kiwi
 {
-    std::vector<char> v = std::vector<char>(0);
+    vector<char> v = vector<char>(0);
     Cell const Cell::Empty (v, 0, 0);
 
-	Cell::Cell(std::vector<char> &bytes, int off, int len) : bytes(bytes), offset(off), length(len)
+	Cell::Cell(vector<char> &bytes, int off, int len) : bytes(bytes), offset(off), length(len)
 	{
 	}
 
-	std::vector<char> Cell::getBytes()
+	vector<char> Cell::getBytes()
 	{
 		return bytes;
 	}
@@ -24,7 +24,7 @@ namespace kiwi
 		return length;
 	}
 
-//	std::string Cell::toString()
+//	string Cell::toString()
 //	{
 //		if (length == 0)
 //		{
@@ -33,13 +33,13 @@ namespace kiwi
 //
 //		// TODO remove this method! works only for INTEGER!
 //		int n = bytes[offset] << 24 | (bytes[offset + 1] & 0xFF) << 16 | (bytes[offset + 2] & 0xFF) << 8 | (bytes[offset + 3] & 0xFF);
-//		return std::to_string(n) + "";
+//		return to_string(n) + "";
 //	}
 //
 //	Cell *Cell::clone()
 //	{
 //		// allocate new byte array and copy data into it
-//		std::vector<char> b(this->length);
+//		vector<char> b(this->length);
 //		System::arraycopy(bytes, offset, b, 0, length);
 //
 //		// return new Cell wrapping the cloned byte array

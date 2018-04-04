@@ -38,7 +38,7 @@ namespace util
 		//zetan=zeta(items,theta);
 		zetan = _zetan;
 		countforzeta = items;
-		eta = (1 - std::pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
+		eta = (1 - pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
 
 		//System.out.println("XXXX 3 XXXX");
 		nextInt();
@@ -68,7 +68,7 @@ namespace util
 		for (long long i = st; i < n; i++)
 		{
 
-			sum += 1 / (std::pow(i + 1,theta));
+			sum += 1 / (pow(i + 1,theta));
 		}
 
 		//System.out.println("countforzeta="+countforzeta);
@@ -97,7 +97,7 @@ namespace util
 
 					//we have added more items. can compute zetan incrementally, which is cheaper
 					zetan = zeta(countforzeta,itemcount,theta,zetan);
-					eta = (1 - std::pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
+					eta = (1 - pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
 				}
 				else if ((itemcount < countforzeta) && (allowitemcountdecrease))
 				{
@@ -108,10 +108,10 @@ namespace util
 					//the zeta sequence terms for the items that went away. This would be faster than recomputing from scratch when the number of items
 					//decreases
 
-                    std::cout << ("WARNING: Recomputing Zipfian distribtion. This is slow and should be avoided. (itemcount=" + std::to_string(itemcount) + " countforzeta=" + std::to_string(countforzeta) + ")\n");
+                    cout << ("WARNING: Recomputing Zipfian distribtion. This is slow and should be avoided. (itemcount=" + to_string(itemcount) + " countforzeta=" + to_string(countforzeta) + ")\n");
 
 					zetan = zeta(itemcount,theta);
-					eta = (1 - std::pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
+					eta = (1 - pow(2.0 / items,1 - theta)) / (1 - zeta2theta / zetan);
 				}
 			}
 		}
@@ -124,12 +124,12 @@ namespace util
 			return 0;
 		}
 
-		if (uz < 1.0 + std::pow(0.5,theta))
+		if (uz < 1.0 + pow(0.5,theta))
 		{
 			return 1;
 		}
 
-		long long ret = base + static_cast<long long>((itemcount) * std::pow(eta*u - eta + 1, alpha));
+		long long ret = base + static_cast<long long>((itemcount) * pow(eta*u - eta + 1, alpha));
 		setLastInt(static_cast<int>(ret));
 		return ret;
 	}
@@ -139,7 +139,7 @@ namespace util
 		return static_cast<int>(nextLong(items));
 	}
 
-    std::pair<int, int> ZipfianGenerator::nextInterval()
+    pair<int, int> ZipfianGenerator::nextInterval()
 	{
 		throw NotImplementedException();
 	}

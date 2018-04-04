@@ -8,7 +8,7 @@ namespace kiwi
 	using util::Pair;
 	using util::ZipfianGenerator;
 
-std::vector<KeyDistribution> KeyDistribution::valueList;
+vector<KeyDistribution> KeyDistribution::valueList;
 
 KeyDistribution::StaticConstructor::StaticConstructor()
 {
@@ -16,7 +16,7 @@ KeyDistribution::StaticConstructor::StaticConstructor()
 
 KeyDistribution::StaticConstructor KeyDistribution::staticConstructor;
 int KeyDistribution::nextOrdinal = 0;
-KeyDistribution::KeyDistribution(const std::wstring &name, InnerEnum innerEnum) : nameValue(name), ordinalValue(nextOrdinal++), innerEnumValue(innerEnum)
+KeyDistribution::KeyDistribution(const wstring &name, InnerEnum innerEnum) : nameValue(name), ordinalValue(nextOrdinal++), innerEnumValue(innerEnum)
 {
 }
 
@@ -30,7 +30,7 @@ bool KeyDistribution::operator != (const KeyDistribution &other)
 	return this->ordinalValue != other.ordinalValue;
 }
 
-std::vector<KeyDistribution> KeyDistribution::values()
+vector<KeyDistribution> KeyDistribution::values()
 {
 	return valueList;
 }
@@ -40,12 +40,12 @@ int KeyDistribution::ordinal()
 	return ordinalValue;
 }
 
-std::wstring KeyDistribution::toString()
+wstring KeyDistribution::toString()
 {
 	return nameValue;
 }
 
-KeyDistribution KeyDistribution::valueOf(const std::wstring &name)
+KeyDistribution KeyDistribution::valueOf(const wstring &name)
 {
 	for (auto enumInstance : KeyDistribution::valueList)
 	{
@@ -67,7 +67,7 @@ int Parameters::size = 1024;
 int Parameters::warmUp = 5;
 int Parameters::iterations = 1;
 bool Parameters::detailedStats = false;
-std::wstring Parameters::benchClassName = std::wstring(L"skiplists.lockfree.NonBlockingFriendlySkipListMap");
+wstring Parameters::benchClassName = wstring(L"skiplists.lockfree.NonBlockingFriendlySkipListMap");
 bool Parameters::rangeQueries = false;
 int Parameters::minRangeSize = 10;
 int Parameters::maxRangeSize = 20;

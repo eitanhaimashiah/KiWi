@@ -1,5 +1,7 @@
 #include "SkewedLatestGenerator.h"
 
+using namespace std;
+
 namespace util
 {
     SkewedLatestGenerator::SkewedLatestGenerator(CounterGenerator basis) : _basis(basis),_zipfian(_basis.lastInt())
@@ -15,7 +17,7 @@ namespace util
 		return nextint;
 	}
 
-    std::pair<int, int> SkewedLatestGenerator::nextInterval()
+    pair<int, int> SkewedLatestGenerator::nextInterval()
 	{
 		throw NotImplementedException();
 	}

@@ -50,7 +50,7 @@ int KiWiMap::RebalanceSize = 2;
 		return nullptr;
 	}
 
-	int KiWiMap::getRange(std::vector<Integer> &result, Integer min, Integer max)
+	int KiWiMap::getRange(vector<Integer> &result, Integer min, Integer max)
 	{
 		return kiwi->scan(result,min,max);
 		/*
@@ -69,7 +69,7 @@ int KiWiMap::RebalanceSize = 2;
 template<typename T1, typename T1>
 //JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
 //ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-	void KiWiMap::putAll(std::unordered_map<T1> map)
+	void KiWiMap::putAll(unordered_map<T1> map)
 	{
 		for (auto key : map)
 		{

@@ -4,6 +4,8 @@
 #include <vector>
 #include "Chunk.h"
 
+using namespace std;
+
 namespace kiwi
 {
 	template<typename K, typename V>
@@ -11,7 +13,7 @@ namespace kiwi
 	{
 
 	public:
-		virtual std::vector<Chunk<K, V>*> compact(std::vector<Chunk<K, V>*> &frozenChunks, ScanIndex<K> *scanIndex) = 0;
+		virtual vector<Chunk<K, V>*> compact(vector<Chunk<K, V>*> &frozenChunks, ScanIndex<K> *scanIndex) = 0;
 	};
 
 }

@@ -6,12 +6,14 @@
 #include <list>
 #include <type_traits>
 
+using namespace std;
+
 namespace kiwi
 {
 	template<typename K, typename V>
 	class CompactorImpl : public Compactor<K, V>
 	{
-		static_assert(std::is_base_of<Comparable<K>, K>::value, L"K must inherit from Comparable<K>");
+		static_assert(is_base_of<Comparable<K>, K>::value, L"K must inherit from Comparable<K>");
 
 	private:
 		const int LOW_THRESHOLD = Chunk::MAX_ITEMS / 2;
@@ -27,9 +29,9 @@ namespace kiwi
 			delete lastCheckedForAppend;
 		}
 
-		virtual std::vector<Chunk<K, V>*> compact(std::vector<Chunk<K, V>*> &frozenChunks, ScanIndex<K> *scanIndex)
+		virtual vector<Chunk<K, V>*> compact(vector<Chunk<K, V>*> &frozenChunks, ScanIndex<K> *scanIndex)
 		{
-			std::vector<Chunk<K, V>*>::const_iterator iterFrozen = frozenChunks.begin();
+			vector<Chunk<K, V>*>::const_iterator iterFrozen = frozenChunks.begin();
 
 //JAVA TO C++ CONVERTER TODO TASK: Java iterators are only converted within the context of 'while' and 'for' loops:
 			Chunk<K, V> *firstFrozen = iterFrozen.next();
@@ -38,7 +40,7 @@ namespace kiwi
 
 			int oi = firstFrozen->getFirstItemOrderId();
 
-			std::vector<Chunk<K, V>*> compacted = std::list<Chunk<K, V>*>();
+			vector<Chunk<K, V>*> compacted = list<Chunk<K, V>*>();
 
 			while (true)
 			{
@@ -59,7 +61,7 @@ namespace kiwi
 				}
 				else // filled compacted chunk up to LOW_THRESHOLD
 				{
-					std::vector<Chunk<K, V>*> frozenSuffix = frozenChunks.subList(iterFrozen.previousIndex(), frozenChunks.size());
+					vector<Chunk<K, V>*> frozenSuffix = frozenChunks.subList(iterFrozen.previousIndex(), frozenChunks.size());
 
 					// try to look ahead and add frozen suffix
 					if (canAppendSuffix(oi, frozenSuffix, MAX_RANGE_TO_APPEND))
@@ -86,7 +88,7 @@ namespace kiwi
 		}
 
 	private:
-		bool canAppendSuffix(int oi, std::vector<Chunk<K, V>*> &frozenSuffix, int maxCount)
+		bool canAppendSuffix(int oi, vector<Chunk<K, V>*> &frozenSuffix, int maxCount)
 		{
 			MultiChunkIterator *iter = new MultiChunkIterator(oi, frozenSuffix);
 			int counter = 1;
@@ -100,9 +102,9 @@ namespace kiwi
 			return counter < maxCount;
 		}
 
-		void completeCopy(Chunk<K, V> *dest, int oi, std::vector<Chunk<K, V>*> &srcChunks, ScanIndex<K> *scanIndex)
+		void completeCopy(Chunk<K, V> *dest, int oi, vector<Chunk<K, V>*> &srcChunks, ScanIndex<K> *scanIndex)
 		{
-			std::vector<Chunk<K, V>*>::const_iterator iter = srcChunks.begin();
+			vector<Chunk<K, V>*>::const_iterator iter = srcChunks.begin();
 //JAVA TO C++ CONVERTER TODO TASK: Java iterators are only converted within the context of 'while' and 'for' loops:
 			Chunk<K, V> *src = iter.next();
 			dest->copyPart(src,oi, Chunk::MAX_ITEMS, scanIndex);

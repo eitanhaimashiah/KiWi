@@ -2,518 +2,559 @@
 #define Chunk_h
 
 #include <atomic>
+#include <memory>
 #include <map>
 #include <vector>
 #include <iostream>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <thread>
+
+#include "PutData.h"
+#include "DebugStats.h"
+
 #include "exceptionhelper.h"
-#include "ThreadData.h"
-#include "Rebalancer.h"
-#include "../util/MarkableReference.h"
+#include "MarkableReference.h"
+//#include "../util/MarkableReference.h" // TODO: Check in Galios how they include such files
 
 // Forward class declarations
 namespace kiwi { class Statistics; }
 namespace kiwi { class ItemsIterator; }
 namespace kiwi { class VersionsIterator; }
+namespace kiwi { template<typename K, typename V> class Rebalancer; }
+
+using namespace std;
 
 namespace kiwi
 {
 	template<typename K, typename V>
 	class Chunk
 	{
-        
     /***************	Constants			***************/
-	protected:
+	public:
 		static constexpr int NONE = 0; // constant for "no version", "no index", etc. MUST BE 0!
 		static constexpr int FREEZE_VERSION = 1;
 		static constexpr int CANCELED_REMOVE_NEXT = -1;
 
+        // TODO: Replace with appropriate struct
 		// order_size(4) = next + version + key + data
 		static constexpr int ORDER_SIZE = 4; // # of fields in each item of order array
 		static constexpr int OFFSET_NEXT = 0;
 		static constexpr int OFFSET_VERSION = 1; // POSITIVE means item is linked, otherwise might not be linked yet
 		static constexpr int OFFSET_KEY = 2;
 		static constexpr int OFFSET_DATA = 3;
-
-		// location of the first (head) node - just a next pointer
+        
+        static constexpr int MAX_ITEMS = 4500;
+        static constexpr bool ALLOW_DUPS = true;
+        
 	private:
-		static constexpr int HEAD_NODE = 0;
+        // location of the first (head) node - just a next pointer
+        static constexpr int HEAD_NODE = 0;
+        
 		// index of first item in order-array, after head (not necessarily first in list!)
 		static constexpr int FIRST_ITEM = 1;
-
-	public:
-		static constexpr int MAX_ITEMS = 4500;
-		static constexpr bool ALLOW_DUPS = true;
+        
+        static constexpr int PAD_SIZE = 100;
+        
+        // TODO: Taken from the KiWi class, think of better idea...
+        static constexpr int MAX_THREADS = 32;
 
     /***************	Members				***************/
 	//	static Unsafe *const unsafe;
 	private:
-		std::vector<int> const orderArray;    // array is initialized to 0, i.e., NONE - this is important!
-        std::atomic<int> const orderIndex;    // points to next free index of order array
-        std::atomic<int> const dataIndex;     // points to next free index of data array
+        // TODO: Understand what's the best way to treat orderArray in the sense atomic<> etc.
+        // Moreover,the use of vector<> should be considerd again.
+		vector<int> const orderArray;    // array is initialized to 0, i.e., NONE - this is important!
+        atomic<int> const orderIndex;    // points to next free index of order array
+        atomic<int> const dataIndex;     // points to next free index of data array
         
-        Statistics *statistics;
+        unique_ptr<Statistics> statistics;  // TODO: Be sure that unique_ptr iss the proper solution for smart pointers
         int orderIndexSerial = 0;
         int dataIndexSerial = 0;
         
-        std::vector<ThreadData::PutData<K, V>*> putArray;
-        static constexpr int PAD_SIZE = 100;
+        vector<unique_ptr<PutData>> putArray;
         
 	protected:
-		std::vector<void*> const dataArray;
-        int sortedCount = 0; // # of sorted items at order-array's beginning (resulting from split)
+		vector<void*> const dataArray;
+        int sortedCount; // # of sorted items at order-array's beginning (resulting from split)
         
 	public:
 		K minKey; // minimal key that can be put in this chunk
-        std::atomic<MarkableReference<Chunk<K, V>>> next;
-		std::atomic<Rebalancer<K, V> *> rebalancer;
+        atomic<MarkableReference<Chunk<K, V>>> next;
+		atomic<unique_ptr<Rebalancer<K, V>>> rebalancer;
 
-		Chunk<K, V> *creator; // in split/compact process, represents parent of split (can be null!)
-		AtomicReference<std::vector<Chunk<K, V>*>> *children;
+		unique_ptr<Chunk<K, V>> creator; // in split/compact process, represents parent of split (can be null!)
+		atomic<unique_ptr<vector<Chunk<K, V>>>> children; // TODO: probably atomic on vector is not a good practice
 
-		virtual ~Chunk()
-		{
-			delete creator;
-			delete children;
-			delete statistics;
-		}
-
-		int getOrderIndexSerial()
-		{
-			return orderIndexSerial;
-		}
-
-		int getFirstItemOrderId()
-		{
-			return get(HEAD_NODE,OFFSET_NEXT);
-		}
-
-		bool isFreezed()
-		{
-			return orderIndex->get() >= orderArray.size();
-		}
-
-		bool tryFreezeItem(int const oi)
-		{
-			return cas(oi,OFFSET_VERSION, NONE, FREEZE_VERSION);
-		}
-
-		virtual int copyValues(std::vector<void*> &result, int const idx, int const myVer, K const min, K const max, SortedMap<K, PutData<K, V>*> *const items) = 0;
-
-		/// <summary>
-		/// this method is used by scan operations (ONLY) to help pending put operations set a version </summary>
-		/// <returns> sorted map of items matching key range of any currently-pending put operation  </returns>
-
-		virtual SortedMap<K, PutData<K, V>*> *helpPutInScan(int myVersion, K min, K max)
-		{
-			SortedMap<K, PutData<K, V>*> *items = std::map<K, PutData<K, V>*>();
-
-			// go over thread data of all threads
-			for (int i = 0; i < KiWi::MAX_THREADS; ++i)
-			{
-				// make sure data is for a Put operatio
-				PutData<K, V> *currPut = putArray[pad(i)];
-				if (currPut == nullptr)
-				{
-					continue;
-				}
-
-				// if put operation's key is not in key range - skip it
-				K currKey = readKey(currPut->orderIndex);
-				if ((currKey(min) < 0) || (currKey(max) > 0))
-				{
-					continue;
-				}
-
-				// read the current version of the item
-				int currVer = getVersion(currPut->orderIndex);
-
-				// if empty, try to set to my version
-				if (currVer == NONE)
-				{
-					currVer = setVersion(currPut->orderIndex, myVersion);
-				}
-
-				// if item is frozen or beyond my version - skip it
-				if ((currVer == Chunk::FREEZE_VERSION) || (currVer > myVersion))
-				{
-					continue;
-				}
-
-				// get found item matching current key
-				PutData<K, V> *item = items->get(currKey);
-
-				// is there such an item we previously found? check if we need to replace it
-				if (item != nullptr)
-				{
-					// get its version
-					int itemVer = getVersion(item->orderIndex);
-
-					// existing item is newer - don't replace
-					if (itemVer > currVer)
-					{
-						continue;
-					}
-					// if same versions - continue checking (otherwise currVer is newer so will replace item)
-					else if (itemVer == currVer)
-					{
-						// same chunk & version but items's index is larger - don't replace
-						if (item->orderIndex > currPut->orderIndex)
-						{
-							continue;
-						}
-					}
-
-				}
-
-				// if we've reached here then curr is newer than item, and we replace it
-				items->put(currKey, currPut);
-			}
-
-			return items;
-		}
-
-
-	private:
-		int pad(int idx)
-		{
-			return (PAD_SIZE + idx*PAD_SIZE);
-		}
-
-
-		/// <summary>
-		/// this method is used by get operations (ONLY) to help pending put operations set a version </summary>
-		/// <returns> newest item matching myKey of any currently-pending put operation  </returns>
+    /***************	Constructors		***************/
 	public:
-		virtual PutData<K, V> *helpPutInGet(int myVersion, K myKey)
+        /**
+         * Create a new chunk
+         * @param minKey	minimal key to be placed in chunk, used by KiWi
+         * @param dataItemSize	expected avg. size (in BYTES!) of items in data-array. can be an estimate
+         */
+		Chunk(K minKey, int dataItemSize, Chunk<K, V> &creator) :
+        orderArray(MAX_ITEMS * ORDER_SIZE + FIRST_ITEM), // allocate space for MAX_ITEMS, and add FIRST_ITEM (size of head) for order array
+        dataArray(MAX_ITEMS + 1),
+        orderIndex(FIRST_ITEM),
+        dataIndex(FIRST_ITEM),
+        orderIndexSerial(FIRST_ITEM),                    // allocate space for head item (only "next", starts pointing to NONE==0)
+        dataIndexSerial(FIRST_ITEM),
+        children(nullptr),
+        next(nullptr, false),
+        minKey(minKey),
+        creator(creator),
+        sortedCount(0),         // no sorted items at first
+        rebalancer(nullptr),    // to be updated on rebalance
+        statistics(*this)
 		{
-			// marks the most recent put that was found in the thread-array
-			PutData<K, V> *newestPut = nullptr;
-			int newestVer = Chunk::NONE;
-
-			// go over thread data of all threads
-			for (int i = 0; i < KiWi::MAX_THREADS; ++i)
-			{
-				// make sure data is for a Put operation
-				PutData<K, V> *currPut = putArray[pad(i)];
-				if (currPut == nullptr)
-				{
-					continue;
-				}
-
-				// if put operation's key is not same as my key - skip it
-				K currKey = readKey(currPut->orderIndex);
-				if (currKey(myKey) != 0)
-				{
-					continue;
-				}
-
-				// read the current version of the item
-				int currVer = getVersion(currPut->orderIndex);
-
-				// if empty, try to set to my version
-				if (currVer == Chunk::NONE)
-				{
-					currVer = setVersion(currPut->orderIndex, myVersion);
-				}
-
-				// if item is frozen - skip it
-				if (currVer == Chunk::FREEZE_VERSION)
-				{
-					continue;
-				}
-
-				// current item has newer version than newest item - replace
-				if (currVer > newestVer)
-				{
-					newestVer = currVer;
-					newestPut = currPut;
-				}
-				// same version for both item - check according to chunk
-				else if (currVer == newestVer)
-				{
-						// same chunk & version but current's index is larger - it is newer
-						if (currPut->orderIndex > newestPut->orderIndex)
-						{
-							newestPut = currPut;
-						}
-				}
-			}
-
-			// return item if its chunk.child1 is null, otherwise return null
-			if ((newestPut == nullptr) || (isRebalanced()))
-			{
-				return nullptr;
-			}
-			else
-			{
-				return newestPut;
-			}
+			// TODO: allocate space for minKey inside chunk (pointed by skiplist)?
 		}
 
+    /***************	Nested Classes  	***************/
 
-		/// <summary>
-		/// publish data into thread array - use null to clear * </summary>
-		virtual void publishPut(PutData<K, V> *data)
-		{
-			// get index of current thread
-			// since thread IDs are increasing and changing, we assume threads are created one after another (sequential IDs).
-			// thus, (ThreadID % MAX_THREADS) will return a unique index for each thread in range [0, MAX_THREADS)
-			int idx = static_cast<int>(Thread::currentThread().getId() % KiWi::MAX_THREADS);
+    public:
+        /***
+         * The class contains approximate information about chunk utilization.
+         */
+        class Statistics
+        {
+        private:
+            Chunk<K, V> &outerInstance;
+            atomic<int> dupsCount;
+        public:
+            
+            Statistics(Chunk<K, V> *outerInstance): outerInstance(outerInstance), dupsCount(0) {}
+            
+            /***
+             * @return Maximum number of items the chunk can hold
+             */
+            virtual int getMaxItems()
+            {
+                return Chunk::MAX_ITEMS;
+            }
+            
+            /***
+             * @return Number of items inserted into the chunk
+             */
+            virtual int getFilledCount()
+            {
+                return outerInstance.orderIndex.load() / Chunk::ORDER_SIZE;
+            }
+            
+            /***
+             * @return Approximate number of items chunk may contain after compaction.
+             */
+            virtual int getCompactedCount()
+            {
+                return getFilledCount() - getDuplicatesCount();
+            }
+            
+            virtual void incrementDuplicates()
+            {
+                dupsCount.fetch_add(1);
+            }
+            
+            virtual int getDuplicatesCount()
+            {
+                return dupsCount.load();
+            }
+            
+        };
 
-			// TODO verify the assumption about sequential IDs
-
-			// publish into thread array
-			putArray[pad(idx)] = data;
-			Chunk::unsafe->storeFence();
-
-		}
-
-		virtual void debugCalcCounters(DebugStats *ds)
-		{
-			ItemsIterator *iter = itemsIterator();
-			ds->sortedCells += sortedCount;
-			ds->occupiedCells += orderIndex->get() / ORDER_SIZE;
-
-			int curr = NONE;
-			int prev = NONE;
-			int DATA_SIZE = 1;
-
-			int prevDataId = NONE;
-			int currDataId = NONE;
-
-			K key = nullptr;
-			K prevKey = nullptr;
-
-			while (iter->hasNext())
-			{
-
-				iter->next();
-				prev = curr;
-				curr = iter->current;
-				prevDataId = currDataId;
-				currDataId = get(curr, OFFSET_DATA);
-
-				if (prev + ORDER_SIZE != curr)
-				{
-					ds->jumpKeyCount++;
-				}
-
-				if (std::abs(prevDataId) + DATA_SIZE != std::abs(currDataId))
-				{
-					ds->jumpValCount++;
-				}
-
-				prevKey = key;
-				key = iter->getKey();
-
-				V val = iter->getValue();
-				int version = iter->getVersion();
-
-				if (val == nullptr)
-				{
-					ds->nulItemsCount++;
-				}
-
-				ds->itemCount++;
-
-				if (prevKey != nullptr)
-				{
-					if (key(prevKey) == 0)
-					{
-						ds->duplicatesCount++;
-					}
-					else if (val == nullptr)
-					{
-						ds->removedItems++;
-					}
-				}
-
-
-				iter++;
-			}
-		}
-
-		/// <summary>
-		///*
-		/// The class contains approximate information about chunk utilization.
-		/// </summary>
-	public:
-		class Statistics
-		{
-		private:
-			Chunk<K*, V*> *outerInstance;
-
+        class ItemsIterator
+        {
 		public:
-			virtual ~Statistics()
-			{
-				delete dupsCount;
-				delete outerInstance;
-			}
-
-			Statistics(Chunk<K, V> *outerInstance);
-
-		private:
-			AtomicInteger *dupsCount = new AtomicInteger(0);
-			/// <summary>
-			///*
-			/// </summary>
-			/// <returns> Maximum number of items the chunk can hold </returns>
-		public:
-			virtual int getMaxItems();
-
-			/// <summary>
-			///*
-			/// </summary>
-			/// <returns> Number of items inserted into the chunk </returns>
-			virtual int getFilledCount();
-
-			/// <summary>
-			///*
-			/// </summary>
-			/// <returns> Approximate number of items chunk may contain after compaction. </returns>
-			virtual int getCompactedCount();
-
-			virtual void incrementDuplicates();
-
-			virtual int getDuplicatesCount();
-		};
-
-		/// <summary>
-		///*************	Constructors		************** </summary>
-		/// <summary>
-		/// Create a new chunk </summary>
-		/// <param name="minKey">	minimal key to be placed in chunk, used by KiWi </param>
-		/// <param name="dataItemSize">	expected avg. size (in BYTES!) of items in data-array. can be an estimate </param>
-	public:
-		Chunk(K minKey, int dataItemSize, Chunk<K, V> *creator) : orderArray(std::vector<int>(MAX_ITEMS * ORDER_SIZE + FIRST_ITEM)), dataArray(std::vector<void*>(MAX_ITEMS + 1)), orderIndex(new AtomicInteger(FIRST_ITEM)), dataIndex(new AtomicInteger(FIRST_ITEM)) / * index 0 in data is L"NONE" */
-		{
-
-			// allocate space for head item (only "next", starts pointing to NONE==0)
-			this->orderIndexSerial = FIRST_ITEM;
-			this->dataIndexSerial = FIRST_ITEM;
-
-			// allocate space for MAX_ITEMS, and add FIRST_ITEM (size of head) for order array
-			//this.orderArray = new AtomicIntegerArray(MAX_ITEMS * ORDER_SIZE + FIRST_ITEM);	// initialized to 0, i.e., NONE
-			this->putArray = std::vector<PutData*>(KiWi::MAX_THREADS * (PAD_SIZE + 1));
-
-			this->children = new AtomicReference<std::vector<Chunk<K,V>>>(nullptr);
-
-			this->next = new AtomicMarkableReference<Chunk<K,V>>(nullptr, false);
-			this->minKey = minKey;
-			this->creator = creator;
-			this->sortedCount = 0; // no sorted items at first
-			this->rebalancer = new AtomicReference<Rebalancer<K, V>*>(nullptr); // to be updated on rebalance
-			this->statistics = new Statistics(this);
-
-			// TODO allocate space for minKey inside chunk (pointed by skiplist)?
-		}
-
-		/// <summary>
-		/// static constructor - access and create a new instance of Unsafe </summary>
-		private:
-			class StaticConstructor
-			{
-			public:
-				StaticConstructor();
-			};
-
-		private:
-			static Chunk::StaticConstructor staticConstructor;
-
-
-		/// <summary>
-		///*************	Abstract Methods	************** </summary>
-	public:
-		virtual int allocate(K key, V data) = 0;
-		virtual int allocateSerial(int key, V data) = 0;
-
-
-		virtual K readKey(int orderIndex) = 0;
-		virtual void *readData(int orderIndex, int dataIndex) = 0;
-
-		/// <summary>
-		/// should CLONE minKey as needed </summary>
-		virtual Chunk<K, V> *newChunk(K minKey) = 0;
-
-		/// <summary>
-		///*************	Methods				************** </summary>
-
-		virtual void finishSerialAllocation()
-		{
-			orderIndex->set(orderIndexSerial);
-			dataIndex->set(dataIndexSerial);
-		}
-
-	public:
-		class ItemsIterator
-		{
-		private:
-			Chunk<K*, V*> *outerInstance;
-
-		public:
+            Chunk<K, V> &outerInstance;
 			int current = 0;
-			VersionsIterator *iterVersions;
+			unique_ptr<VersionsIterator> iterVersions;
 
-			virtual ~ItemsIterator()
-			{
-				delete iterVersions;
-				delete outerInstance;
-			}
+            ItemsIterator(Chunk<K, V> &outerInstance) : outerInstance(outerInstance), current(HEAD_NODE), iterVersions(*this) {}
 
-			ItemsIterator(Chunk<K, V> *outerInstance);
+			bool hasNext()
+            {
+                return outerInstance.get(current, OFFSET_NEXT) != Chunk::NONE;
+            }
 
-			bool hasNext();
+			void next()
+            {
+                current = outerInstance.get(current, OFFSET_NEXT);
+                iterVersions->justStarted = true;
+            }
 
-			void next();
+			K getKey()
+            {
+                return outerInstance.readKey(current);
+            }
 
-			K *getKey();
+			V getValue()
+            {
+                return outerInstance.getData(current);
+            }
 
-			V *getValue();
+			int getVersion()
+            {
+                return outerInstance.getVersion(current);
+            }
 
-			int getVersion();
+			ItemsIterator cloneIterator()
+            {
+                ItemsIterator newIterator (outerInstance);
+                newIterator.current = this->current;
+                return newIterator;
+            }
 
-			ItemsIterator *cloneIterator();
-
-			VersionsIterator *versionsIterator();
+			VersionsIterator &versionsIterator()
+            {
+                return iterVersions;
+            }
 
 		public:
 			class VersionsIterator
 			{
-			private:
-				Chunk::ItemsIterator *outerInstance;
+                friend class ItemsIterator;
+                
+            private:
+                Chunk::ItemsIterator &outerInstance;
+                bool justStarted;
 
-			public:
-				virtual ~VersionsIterator()
-				{
-					delete outerInstance;
-				}
+            public:
+                VersionsIterator(Chunk::ItemsIterator &outerInstance) : outerInstance(outerInstance), justStarted(true) {}
 
-				VersionsIterator(Chunk::ItemsIterator *outerInstance);
+				V getValue()
+                {
+                    return outerInstance.outerInstance.getData(outerInstance.current);
+                }
 
-				bool justStarted = true;
+				int getVersion()
+                {
+                    return outerInstance.outerInstance.getVersion(outerInstance.current);
+                }
+                
+				bool hasNext()
+                {
+                    if (justStarted)
+                    {
+                        return true;
+                    }
 
-
-				V *getValue();
-
-
-				int getVersion();
-
-
-				bool hasNext();
-
-
-				void next();
-			};
-
+                    int next = outerInstance.outerInstance.get(outerInstance.current, OFFSET_NEXT);
+                    
+                    if (next == Chunk::NONE)
+                    {
+                        return false;
+                    }
+                    
+                    return false;
+                    // TODO: Solve the issue of "K extends Comparable<? super K>"
+                    // return readKey(current).compareTo(readKey(next)) == 0;
+                    //return outerInstance.outerInstance.readKey(outerInstance.current)(outerInstance->outerInstance->readKey(next)) == 0;
+                }
+                
+                void next()
+                {
+                    if (justStarted)
+                    {
+                        justStarted = false;
+                        return;
+                    }
+                    else
+                    {
+                        outerInstance.current = outerInstance.outerInstance.get(outerInstance.current, OFFSET_NEXT);
+                    }
+                }
+                
+            };
+            
 		};
-
-	public:
-		virtual ItemsIterator *itemsIterator()
-		{
-			return new ItemsIterator(this);
+        
+    /***************	Abstract Methods	***************/
+    public:
+        virtual int allocate(K key, V data) = 0;
+        virtual int allocateSerial(int key, V data) = 0;
+        
+        
+        virtual K readKey(int orderIndex) = 0;
+        virtual void *readData(int orderIndex, int dataIndex) = 0;
+        
+        /** should CLONE minKey as needed */
+        virtual Chunk<K, V> *newChunk(K minKey) = 0;
+        
+    /***************	Methods				***************/
+    public:
+        int getOrderIndexSerial()
+        {
+            return orderIndexSerial;
+        }
+        
+        int getFirstItemOrderId()
+        {
+            return get(HEAD_NODE,OFFSET_NEXT);
+        }
+        
+        bool isFreezed()
+        {
+            return orderIndex.load() >= orderArray.size();
+        }
+        
+        bool tryFreezeItem(int const oi)
+        {
+            return cas(oi,OFFSET_VERSION, NONE, FREEZE_VERSION);
+        }
+        
+        // TODO: Check if K has compare() function
+        virtual int copyValues(vector<void*> &result, int const idx, int const myVer, K const min, K const max, map<K, PutData> const& items) = 0;
+        
+        /**
+         * this method is used by scan operations (ONLY) to help pending put operations set a version
+         * @return sorted map of items matching key range of any currently-pending put operation
+         */
+        virtual map<K, unique_ptr<PutData>> helpPutInScan(int myVersion, K min, K max)
+        {
+            map<K, unique_ptr<PutData>> items;
+            
+            // go over thread data of all threads
+            for (int i = 0; i < MAX_THREADS; ++i)
+            {
+                // make sure data is for a Put operation
+                unique_ptr<PutData> currPut = putArray[pad(i)];
+                if (currPut == nullptr)
+                {
+                    continue;
+                }
+                
+                // if put operation's key is not in key range - skip it
+                K currKey = readKey(currPut->orderIndex);
+                
+                // TODO: Solve the issue of "K extends Comparable<? super K>"
+//				if ((currKey.compareTo(min) < 0) || (currKey.compareTo(max) > 0))
+//				{
+//					continue;
+//				}
+                
+                // read the current version of the item
+                int currVer = getVersion(currPut->orderIndex);
+                
+                // if empty, try to set to my version
+                if (currVer == NONE)
+                {
+                    currVer = setVersion(currPut->orderIndex, myVersion);
+                }
+                
+                // if item is frozen or beyond my version - skip it
+                if ((currVer == Chunk::FREEZE_VERSION) || (currVer > myVersion))
+                {
+                    continue;
+                }
+                
+                // get found item matching current key
+                auto it = items.find(currKey);
+                
+                // is there such an item we previously found? check if we need to replace it
+                if (it != items.end())
+                {
+                    unique_ptr<PutData> item = it->second;
+                    
+                    // get its version
+                    int itemVer = getVersion(item->orderIndex);
+                    
+                    // existing item is newer - don't replace
+                    if (itemVer > currVer)
+                    {
+                        continue;
+                    }
+                    // if same versions - continue checking (otherwise currVer is newer so will replace item)
+                    else if (itemVer == currVer)
+                    {
+                        // same chunk & version but items's index is larger - don't replace
+                        if (item->orderIndex > currPut->orderIndex)
+                        {
+                            continue;
+                        }
+                    }
+                    
+                }
+                
+                // if we've reached here then curr is newer than item, and we replace it
+                items[currKey] = currPut;
+            }
+            
+            return items; // TODO: Verify it's the proper way to do that
+        }
+        
+        
+    private:
+        
+        // TODO: Check this function in the context of orderArray
+        int pad(int idx)
+        {
+            return (PAD_SIZE + idx*PAD_SIZE);
+        }
+        
+    public:
+        /**
+         * this method is used by get operations (ONLY) to help pending put operations set a version
+         * @return newest item matching myKey of any currently-pending put operation
+         */
+        virtual unique_ptr<PutData> helpPutInGet(int myVersion, K myKey)
+        {
+            // marks the most recent put that was found in the thread-array
+            unique_ptr<PutData> newestPut = nullptr;
+            int newestVer = NONE;
+            
+            // go over thread data of all threads
+            for (int i = 0; i < MAX_THREADS; ++i)
+            {
+                // make sure data is for a Put operation
+                unique_ptr<PutData> currPut = putArray[pad(i)];
+                if (currPut == nullptr)
+                {
+                    continue;
+                }
+                
+                // if put operation's key is not same as my key - skip it
+                K currKey = readKey(currPut->orderIndex);
+                
+                // TODO: Solve the issue of "K extends Comparable<? super K>"
+                //				if (currKey.compareTo(min) != 0)
+                //				{
+                //					continue;
+                //				}
+                
+                // read the current version of the item
+                int currVer = getVersion(currPut->orderIndex);
+                
+                // if empty, try to set to my version
+                if (currVer == NONE)
+                {
+                    currVer = setVersion(currPut->orderIndex, myVersion);
+                }
+                
+                // if item is frozen - skip it
+                if (currVer == FREEZE_VERSION)
+                {
+                    continue;
+                }
+                
+                // current item has newer version than newest item - replace
+                if (currVer > newestVer)
+                {
+                    newestVer = currVer;
+                    newestPut = move(currPut);
+                }
+                // same version for both item - check according to chunk
+                else if (currVer == newestVer)
+                {
+                    // same chunk & version but current's index is larger - it is newer
+                    if (currPut->orderIndex > newestPut->orderIndex)
+                    {
+                        newestPut = move(currPut);
+                    }
+                }
+            }
+            
+            // return item if its chunk.child1 is null, otherwise return null
+            if ((newestPut == nullptr) || (isRebalanced()))
+            {
+                return nullptr;
+            }
+            else
+            {
+                return newestPut;
+            }
+        }
+        
+        
+        /** publish data into thread array - use null to clear **/
+        virtual void publishPut(PutData data)
+        {
+            // TODO: I should create a thread map in a sperate class mapping thread::id to numbers
+            // https://stackoverflow.com/questions/15708983/how-can-you-get-the-linux-thread-id-of-a-stdthread
+            // https://stackoverflow.com/questions/7432100/how-to-get-integer-thread-id-in-c11
+            
+            // get index of current thread
+            // since thread IDs are increasing and changing, we assume threads are created one after another (sequential IDs).
+            // thus, (ThreadID % MAX_THREADS) will return a unique index for each thread in range [0, MAX_THREADS)
+            int idx = 1; // static_cast<int>(this_thread::get_id()) % MAX_THREADS;
+            
+            // publish into thread array
+            putArray[pad(idx)] = &data;
+            atomic_thread_fence(memory_order_release); // TODO: verify it indeed equals to Chunk.unsafe.storeFence();
+        }
+        
+        virtual void debugCalcCounters(DebugStats &ds)
+        {
+            ItemsIterator iter = itemsIterator();
+            ds.sortedCells += sortedCount;
+            ds.occupiedCells += orderIndex.load() / ORDER_SIZE; // TODO: Check this line after orderArray task
+            
+            int curr = NONE;
+            int prev = NONE;
+            int DATA_SIZE = 1;
+            
+            int prevDataId = NONE;
+            int currDataId = NONE;
+            
+            K key = nullptr;
+            K prevKey = nullptr;
+            
+            while (iter.hasNext())
+            {
+                iter.next();
+                prev = curr;
+                curr = iter.current;
+                prevDataId = currDataId;
+                currDataId = get(curr, OFFSET_DATA);
+                
+                if (prev + ORDER_SIZE != curr)
+                {
+                    ds.jumpKeyCount++;
+                }
+                
+                if (abs(prevDataId) + DATA_SIZE != abs(currDataId))
+                {
+                    ds.jumpValCount++;
+                }
+                
+                prevKey = key;
+                key = iter.getKey();
+                
+                V val = iter.getValue();
+                //int version = iter.getVersion();
+                
+                if (val == nullptr)
+                {
+                    ds.nulItemsCount++;
+                }
+                
+                ds.itemCount++;
+                
+                if (prevKey != nullptr)
+                {
+                    if (key(prevKey) == 0)
+                    {
+                        ds.duplicatesCount++;
+                    }
+                    else if (val == nullptr)
+                    {
+                        ds.removedItems++;
+                    }
+                }
+                
+                iter++;
+            }
+        }
+        
+        virtual void finishSerialAllocation()
+        {
+            orderIndex.store(orderIndexSerial);
+            dataIndex.store(dataIndexSerial);
+        }
+        
+        virtual ItemsIterator itemsIterator()
+        {
+			return ItemsIterator(*this);
 		}
 
 		virtual ItemsIterator *itemsIterator(int oi)
@@ -549,35 +590,37 @@ namespace kiwi
 
 		virtual bool isRebalanced()
 		{
-			Rebalancer<K, V> *r = getRebalancer();
+			unique_ptr<Rebalancer<K, V>> &r = getRebalancer();
 			if (r == nullptr)
 			{
 				return false;
 			}
 
-			return r->isCompacted();
+			return r->isCompacted(); // TODO: Think what to do regarding this
 
 		}
-		/// <summary>
-		/// gets the field of specified offset for given item </summary>
+        
 	protected:
+        /** gets the field of specified offset for given item */
 		virtual int get(int item, int offset)
 		{
 			return orderArray[item + offset];
 		}
-		/// <summary>
-		/// sets the field of specified offset to 'value' for given item </summary>
+        
+        /** sets the field of specified offset to 'value' for given item */
 		virtual void set(int item, int offset, int value)
 		{
 			orderArray[item + offset] = value;
 		}
 
-		/// <summary>
-		/// performs CAS from 'expected' to 'value' for field at specified offset of given item </summary>
 	private:
+        /** performs CAS from 'expected' to 'value' for field at specified offset of given item */
 		bool cas(int item, int offset, int expected, int value)
 		{
-			return unsafe->compareAndSwapInt(orderArray, Unsafe::ARRAY_INT_BASE_OFFSET + (item + offset) * Unsafe::ARRAY_INT_INDEX_SCALE, expected, value);
+            // TODO: replace it with atomic_compare_exchange_strong()
+			//return unsafe->compareAndSwapInt(orderArray, Unsafe::ARRAY_INT_BASE_OFFSET + (item + offset) * Unsafe::ARRAY_INT_INDEX_SCALE, expected, value);
+            
+            return true;
 		}
 
 		/// <summary>
@@ -622,7 +665,7 @@ namespace kiwi
 		/// <param name="r"> -- a rebalancer to engage with </param>
 		/// <returns> rebalancer engaged with the chunk </returns>
 	public:
-		virtual Rebalancer *engage(Rebalancer *r)
+		virtual Rebalancer<K, V> *engage(Rebalancer<K, V> *r)
 		{
 			rebalancer->compareAndSet(nullptr,r);
 			return rebalancer->get();
@@ -633,18 +676,18 @@ namespace kiwi
 		/// Checks whether the chunk is engaged with a given rebalancer. </summary>
 		/// <param name="r"> -- a rebalancer object. If r is null, verifies that the chunk is not engaged to any rebalancer </param>
 		/// <returns> true if the chunk is engaged with r, false otherwise </returns>
-		virtual bool isEngaged(Rebalancer *r)
+		virtual bool isEngaged(Rebalancer<K, V> r)
 		{
 			return rebalancer->get() == r;
 		}
 
-		/// <summary>
-		///*
-		/// Fetch a rebalancer engaged with the chunk. </summary>
-		/// <returns> rebalancer object or null if not engaged. </returns>
-		virtual Rebalancer *getRebalancer()
+        /***
+         * Fetch a rebalancer engaged with the chunk.
+         * @return rebalancer object or null if not engaged.
+         */
+		virtual unique_ptr<Rebalancer<K, V>> &getRebalancer()
 		{
-			return rebalancer->get();
+			return rebalancer.load();
 		}
 
 		/// <summary>
@@ -698,10 +741,10 @@ namespace kiwi
 			orderIndex->addAndGet(orderArray.size());
 
 			// go over thread data of all threads
-			for (int i = 0; i < KiWi::MAX_THREADS; ++i)
+			for (int i = 0; i < MAX_THREADS; ++i)
 			{
 				// make sure data is for a Put operatio
-				PutData<K, V> *currPut = putArray[pad(i)];
+				PutData currPut = putArray[pad(i)];
 				if (currPut == nullptr)
 				{
 					continue;
@@ -815,7 +858,7 @@ namespace kiwi
 
 		/// <summary>
 		/// finds and returns the value for the given key, or 'null' if no such key exists </summary>
-		virtual V find(K key, PutData<K, V> *item)
+		virtual V find(K key, PutData item)
 		{
 			// binary search sorted part of order-array to quickly find node to start search at
 			// it finds previous-to-key so start with its next
@@ -849,7 +892,7 @@ namespace kiwi
 		}
 
 	private:
-		V chooseNewer(int item, PutData<K, V> *pd)
+		V chooseNewer(int item, PutData pd)
 		{
 			// if pd is empty or in different chunk, then item is definitely newer
 			// it's true since put() publishes after finding a chunk, and get() finds chunk only after reading thread-array
@@ -875,7 +918,7 @@ namespace kiwi
 			else
 			{
 				// same version - return latest item by order in order-array
-				return getData(std::max(item, pd->orderIndex));
+				return getData(max(item, pd->orderIndex));
 			}
 		}
 
@@ -959,7 +1002,7 @@ namespace kiwi
 							int newDataIdx = get(orderIndex, OFFSET_DATA);
 							int oldDataIdx = get(curr, OFFSET_DATA);
 
-							while ((std::abs(newDataIdx) > std::abs(oldDataIdx)) && !cas(curr,OFFSET_DATA,oldDataIdx, newDataIdx))
+							while ((abs(newDataIdx) > abs(oldDataIdx)) && !cas(curr,OFFSET_DATA,oldDataIdx, newDataIdx))
 							{
 								oldDataIdx = get(curr,OFFSET_DATA);
 							}
@@ -1054,7 +1097,7 @@ namespace kiwi
 
 		virtual int getNumOfItems()
 		{
-			return orderIndex->get() / ORDER_SIZE;
+			return orderIndex.load() / ORDER_SIZE;
 		}
 
 		int getNumOfItemsSerial()
@@ -1096,7 +1139,7 @@ namespace kiwi
 			int orderEnd = orderStart - 1;
 
 			int currKey = NONE;
-			int prevKey = std::numeric_limits<int>::min();
+			int prevKey = numeric_limits<int>::min();
 
 			int currDataId = NONE;
 			int prevDataId = NONE;
@@ -1143,7 +1186,7 @@ namespace kiwi
 
 						// next should point to the next item
 						orderArray[oIdx + offset + OFFSET_NEXT] = oIdx + offset + ORDER_SIZE;
-						orderArray[oIdx + offset + OFFSET_VERSION] = std::abs(srcChunk->orderArray[orderStart + offset + OFFSET_VERSION]);
+						orderArray[oIdx + offset + OFFSET_VERSION] = abs(srcChunk->orderArray[orderStart + offset + OFFSET_VERSION]);
 						orderArray[oIdx + offset + OFFSET_DATA] = dataIndexSerial + i;
 						orderArray[oIdx + offset + OFFSET_KEY] = srcChunk->orderArray[orderStart + offset + OFFSET_KEY];
 					}
@@ -1316,16 +1359,15 @@ namespace kiwi
 
 		}
 
-		/// <summary>
-		/// gets the current version of the given order-item </summary>
 	public:
+        /** gets the current version of the given order-item */
 		virtual int getVersion(int orderIndex)
 		{
-			return std::abs(get(orderIndex, OFFSET_VERSION));
+			return abs(get(orderIndex, OFFSET_VERSION));
 		}
-		/// <summary>
-		/// tries to set (CAS) the version of order-item to specified version </summary>
-		/// <returns> whatever version is successfuly set (by this thread or another)	  </returns>
+        
+        /** tries to set (CAS) the version of order-item to specified version
+         * @return whatever version is successfuly set (by this thread or another)	 */
 		virtual int setVersion(int orderIndex, int version)
 		{
 			// try to CAS version from NO_VERSION to desired version
@@ -1446,12 +1488,12 @@ namespace kiwi
 
 		virtual void debugPrint()
 		{
-			std::wcout << this->minKey << L" :: ";
+			wcout << this->minKey << L" :: ";
 			int curr = get(HEAD_NODE, OFFSET_NEXT);
 
 			while (curr != NONE)
 			{
-				std::wcout << L"(" << readKey(curr) << L"," << getData(curr) << L"," << curr << L") ";
+				wcout << L"(" << readKey(curr) << L"," << getData(curr) << L"," << curr << L") ";
 				curr = get(curr, OFFSET_NEXT);
 			}
 		}

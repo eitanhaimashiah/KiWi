@@ -8,6 +8,8 @@
 #include "CounterGenerator.h"
 #include "ZipfianGenerator.h"
 
+using namespace std;
+
 namespace util
 {
     /**
@@ -26,7 +28,7 @@ namespace util
          */
 		int nextInt() override;
 
-        std::pair<int, int> nextInterval() override;
+        pair<int, int> nextInterval() override;
                 
 		double mean() override;
 	};

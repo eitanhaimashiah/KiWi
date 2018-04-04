@@ -5,13 +5,15 @@
 #include "IntegerGenerator.h"
 #include "exceptionhelper.h"
 
+using namespace std;
+
 namespace util
 {
 	// Generates a sequence of integers 0, 1, ...
 	class CounterGenerator : public IntegerGenerator
 	{
 	public:
-        std::atomic<int> counter;
+        atomic<int> counter;
 
 		CounterGenerator(int countstart);
         
@@ -23,7 +25,7 @@ namespace util
 		 */
 		int nextInt() override;
         
-        std::pair<int, int> nextInterval() override;
+        pair<int, int> nextInterval() override;
 
 		int lastInt() override;
 		double mean() override;
