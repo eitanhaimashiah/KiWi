@@ -582,10 +582,10 @@ namespace kiwi
 
 		}
 
-		void updateLastChild(vector<Chunk<K, V>*> &engaged, vector<Chunk<K, V>*> &children)
+		void updateLastChild(const vector<Chunk<K, V>>& engaged, const vector<Chunk<K, V>>& children)
 		{
-			Chunk<K, V> *lastEngaged = engaged[engaged.size() - 1];
-			Chunk<K, V> *nextToLast = lastEngaged->markAndGetNext();
+			Chunk<K, V>& lastEngaged = engaged[engaged.size() - 1];
+			Chunk<K, V>& nextToLast = lastEngaged->markAndGetNext();
 			Chunk<K, V> *lastChild = children[children.size() - 1];
 
 			lastChild->next.compareAndSet(nullptr, nextToLast, false, false);

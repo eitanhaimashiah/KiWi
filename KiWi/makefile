@@ -1,13 +1,15 @@
-CC := g++
+CC := clang
 # CC := clang --analyze
-SRCDIR := src
+KIWIDIR := kiwi 
+UTILDIR := util
 BUILDDIR := build
 BINDIR := bin
 TARGET := $(BINDIR)/runner
 
 SRCEXT := cpp
-SOURCES := $(shell find $(SRCDIR) -type f -name *.$(SRCEXT))
-OBJECTS := $(patsubst $(SRCDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
+SOURCES := $(shell find $(KIWIDIR) $(UTILDIR) -type f -name "*.$(SRCEXT)")
+OBJECTS := $(patsubst $(KIWIDIR)/%,$(BUILDDIR)/%,$(SOURCES:.$(SRCEXT)=.o))
+OBJECTS := $(patsubst $(UTILDIR)/%,$(BUILDDIR)/%,$(OBJECTS))
 CFLAGS := -g -Wall # -O0 -g3 -Wall -fmessage-length=0 -MMD
 # LIB := -pthread -lmongoclient -L lib -lboost_thread-mt -lboost_filesystem-mt -lboost_system-mt 
 INC := -I include -I /usr/local/include
@@ -28,6 +30,6 @@ clean:
 
 # Tests
 tester:
-	$(CC) $(CFLAGS) test/tester.cpp $(INC) $(LIB) -o $(BINDIR)/tester
+	$(CC) $(CFLAGS) main.cpp $(INC) $(LIB) -o $(BINDIR)/tester
 
 .PHONY: clean

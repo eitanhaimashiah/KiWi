@@ -10,15 +10,18 @@ private:
     uintptr_t val;
     static const uintptr_t mask = 1;
 public:
-    MarkableReference(T* ref = NULL, bool mark = false)
+    // TODO: Check if i can get rid of the raw pointer
+    MarkableReference(T* ref = nullptr, bool mark = false)
     {
         val = ((uintptr_t)ref & ~mask) | (mark ? 1 : 0);
     }
-    T* getRef(void)
+    
+    T* getReference()
     {
         return (T*)(val & ~mask);
     }
-    bool getMark(void)
+    
+    bool isMarked()
     {
         return (val & mask);
     }

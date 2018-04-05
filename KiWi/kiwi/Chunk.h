@@ -18,10 +18,7 @@
 #include "MarkableReference.h"
 //#include "../util/MarkableReference.h" // TODO: Check in Galios how they include such files
 
-// Forward class declarations
-namespace kiwi { class Statistics; }
-namespace kiwi { class ItemsIterator; }
-namespace kiwi { class VersionsIterator; }
+// Forward class declaration
 namespace kiwi { template<typename K, typename V> class Rebalancer; }
 
 using namespace std;
@@ -31,6 +28,159 @@ namespace kiwi
 	template<typename K, typename V>
 	class Chunk
 	{
+    /***************	Nested Classes  	***************/
+    public:
+        /**
+         * The class contains approximate information about chunk utilization.
+         */
+        class Statistics
+        {
+        private:
+            Chunk<K, V>& outerInstance;
+            atomic<int> dupsCount;
+        public:
+            
+            Statistics(Chunk<K, V>& outerInstance): outerInstance(outerInstance), dupsCount(0) {}
+            
+            /**
+             * @return Maximum number of items the chunk can hold
+             */
+            virtual int getMaxItems()
+            {
+                return Chunk::MAX_ITEMS;
+            }
+            
+            /**
+             * @return Number of items inserted into the chunk
+             */
+            virtual int getFilledCount()
+            {
+                return outerInstance.orderIndex.load() / Chunk::ORDER_SIZE;
+            }
+            
+            /**
+             * @return Approximate number of items chunk may contain after compaction.
+             */
+            virtual int getCompactedCount()
+            {
+                return getFilledCount() - getDuplicatesCount();
+            }
+            
+            virtual void incrementDuplicates()
+            {
+                dupsCount.fetch_add(1);
+            }
+            
+            virtual int getDuplicatesCount()
+            {
+                return dupsCount.load();
+            }
+            
+        };
+        
+        class ItemsIterator
+        {
+        public:
+            class VersionsIterator
+            {
+            private:
+                Chunk::ItemsIterator& outerInstance;
+                bool justStarted;
+                
+            public:
+                VersionsIterator(Chunk::ItemsIterator& outerInstance) : outerInstance(outerInstance), justStarted(true) {}
+                
+                V getValue()
+                {
+                    return outerInstance.outerInstance.getData(outerInstance.current);
+                }
+                
+                int getVersion()
+                {
+                    return outerInstance.outerInstance.getVersion(outerInstance.current);
+                }
+                
+                bool hasNext()
+                {
+                    if (justStarted)
+                    {
+                        return true;
+                    }
+                    
+                    int next = outerInstance.outerInstance.get(outerInstance.current, OFFSET_NEXT);
+                    
+                    if (next == Chunk::NONE)
+                    {
+                        return false;
+                    }
+                    
+                    return false;
+                    // TODO: Solve the issue of "K extends Comparable<? super K>"
+                    // return readKey(current).compareTo(readKey(next)) == 0;
+                    //return outerInstance.outerInstance.readKey(outerInstance.current)(outerInstance->outerInstance->readKey(next)) == 0;
+                }
+                
+                void next()
+                {
+                    if (justStarted)
+                    {
+                        justStarted = false;
+                        return;
+                    }
+                    else
+                    {
+                        outerInstance.current = outerInstance.outerInstance.get(outerInstance.current, OFFSET_NEXT);
+                    }
+                }
+                
+            };
+            
+        public:
+            Chunk<K, V>& outerInstance;
+            int current = 0;
+            VersionsIterator iterVersions;
+            
+            ItemsIterator(Chunk<K, V>& outerInstance) : outerInstance(outerInstance), current(HEAD_NODE), iterVersions(*this) {}
+            
+            bool hasNext()
+            {
+                return outerInstance.get(current, OFFSET_NEXT) != Chunk::NONE;
+            }
+            
+            void next()
+            {
+                current = outerInstance.get(current, OFFSET_NEXT);
+                iterVersions.justStarted = true;
+            }
+            
+            K getKey()
+            {
+                return outerInstance.readKey(current);
+            }
+            
+            V getValue()
+            {
+                return outerInstance.getData(current);
+            }
+            
+            int getVersion()
+            {
+                return outerInstance.getVersion(current);
+            }
+            
+            ItemsIterator cloneIterator()
+            {
+                ItemsIterator newIterator (outerInstance);
+                newIterator.current = this->current;
+                return newIterator;
+            }
+            
+            VersionsIterator& versionsIterator()
+            {
+                return iterVersions;
+            }
+        };
+        
     /***************	Constants			***************/
 	public:
 		static constexpr int NONE = 0; // constant for "no version", "no index", etc. MUST BE 0!
@@ -63,17 +213,17 @@ namespace kiwi
     /***************	Members				***************/
 	//	static Unsafe *const unsafe;
 	private:
-        // TODO: Understand what's the best way to treat orderArray in the sense atomic<> etc.
+        // TODO: Understand what's the best way to treat orderArray in the sense of atomic<> etc.
         // Moreover,the use of vector<> should be considerd again.
-		vector<int> const orderArray;    // array is initialized to 0, i.e., NONE - this is important!
-        atomic<int> const orderIndex;    // points to next free index of order array
-        atomic<int> const dataIndex;     // points to next free index of data array
+		vector<int> orderArray;    // array is initialized to 0, i.e., NONE - this is important!
+        atomic<int> orderIndex;    // points to next free index of order array
+        atomic<int> dataIndex;     // points to next free index of data array
         
-        unique_ptr<Statistics> statistics;  // TODO: Be sure that unique_ptr iss the proper solution for smart pointers
+        Statistics statistics;
         int orderIndexSerial = 0;
         int dataIndexSerial = 0;
         
-        vector<unique_ptr<PutData>> putArray;
+        vector<shared_ptr<PutData>> putArray; // TODO: Be sure that vector/shared_ptr is right here
         
 	protected:
 		vector<void*> const dataArray;
@@ -81,20 +231,23 @@ namespace kiwi
         
 	public:
 		K minKey; // minimal key that can be put in this chunk
-        atomic<MarkableReference<Chunk<K, V>>> next;
-		atomic<unique_ptr<Rebalancer<K, V>>> rebalancer;
+        atomic<MarkableReference<Chunk<K, V>>> next; // TODO: Maybe I should replace it with std::pair
+		atomic<shared_ptr<Rebalancer<K, V>>> rebalancer;
 
 		unique_ptr<Chunk<K, V>> creator; // in split/compact process, represents parent of split (can be null!)
-		atomic<unique_ptr<vector<Chunk<K, V>>>> children; // TODO: probably atomic on vector is not a good practice
+        
+         // TODO: Be sure that unique_ptr is right here.
+         // In addition, probably atomic on vector is not a good practice.
+		atomic<unique_ptr<vector<Chunk<K, V>>>> children;
 
     /***************	Constructors		***************/
 	public:
         /**
-         * Create a new chunk
+         * Creates a new chunk
          * @param minKey	minimal key to be placed in chunk, used by KiWi
          * @param dataItemSize	expected avg. size (in BYTES!) of items in data-array. can be an estimate
          */
-		Chunk(K minKey, int dataItemSize, Chunk<K, V> &creator) :
+		Chunk(K minKey, int dataItemSize, Chunk<K, V>& creator) :
         orderArray(MAX_ITEMS * ORDER_SIZE + FIRST_ITEM), // allocate space for MAX_ITEMS, and add FIRST_ITEM (size of head) for order array
         dataArray(MAX_ITEMS + 1),
         orderIndex(FIRST_ITEM),
@@ -111,163 +264,6 @@ namespace kiwi
 		{
 			// TODO: allocate space for minKey inside chunk (pointed by skiplist)?
 		}
-
-    /***************	Nested Classes  	***************/
-
-    public:
-        /***
-         * The class contains approximate information about chunk utilization.
-         */
-        class Statistics
-        {
-        private:
-            Chunk<K, V> &outerInstance;
-            atomic<int> dupsCount;
-        public:
-            
-            Statistics(Chunk<K, V> *outerInstance): outerInstance(outerInstance), dupsCount(0) {}
-            
-            /***
-             * @return Maximum number of items the chunk can hold
-             */
-            virtual int getMaxItems()
-            {
-                return Chunk::MAX_ITEMS;
-            }
-            
-            /***
-             * @return Number of items inserted into the chunk
-             */
-            virtual int getFilledCount()
-            {
-                return outerInstance.orderIndex.load() / Chunk::ORDER_SIZE;
-            }
-            
-            /***
-             * @return Approximate number of items chunk may contain after compaction.
-             */
-            virtual int getCompactedCount()
-            {
-                return getFilledCount() - getDuplicatesCount();
-            }
-            
-            virtual void incrementDuplicates()
-            {
-                dupsCount.fetch_add(1);
-            }
-            
-            virtual int getDuplicatesCount()
-            {
-                return dupsCount.load();
-            }
-            
-        };
-
-        class ItemsIterator
-        {
-		public:
-            Chunk<K, V> &outerInstance;
-			int current = 0;
-			unique_ptr<VersionsIterator> iterVersions;
-
-            ItemsIterator(Chunk<K, V> &outerInstance) : outerInstance(outerInstance), current(HEAD_NODE), iterVersions(*this) {}
-
-			bool hasNext()
-            {
-                return outerInstance.get(current, OFFSET_NEXT) != Chunk::NONE;
-            }
-
-			void next()
-            {
-                current = outerInstance.get(current, OFFSET_NEXT);
-                iterVersions->justStarted = true;
-            }
-
-			K getKey()
-            {
-                return outerInstance.readKey(current);
-            }
-
-			V getValue()
-            {
-                return outerInstance.getData(current);
-            }
-
-			int getVersion()
-            {
-                return outerInstance.getVersion(current);
-            }
-
-			ItemsIterator cloneIterator()
-            {
-                ItemsIterator newIterator (outerInstance);
-                newIterator.current = this->current;
-                return newIterator;
-            }
-
-			VersionsIterator &versionsIterator()
-            {
-                return iterVersions;
-            }
-
-		public:
-			class VersionsIterator
-			{
-                friend class ItemsIterator;
-                
-            private:
-                Chunk::ItemsIterator &outerInstance;
-                bool justStarted;
-
-            public:
-                VersionsIterator(Chunk::ItemsIterator &outerInstance) : outerInstance(outerInstance), justStarted(true) {}
-
-				V getValue()
-                {
-                    return outerInstance.outerInstance.getData(outerInstance.current);
-                }
-
-				int getVersion()
-                {
-                    return outerInstance.outerInstance.getVersion(outerInstance.current);
-                }
-                
-				bool hasNext()
-                {
-                    if (justStarted)
-                    {
-                        return true;
-                    }
-
-                    int next = outerInstance.outerInstance.get(outerInstance.current, OFFSET_NEXT);
-                    
-                    if (next == Chunk::NONE)
-                    {
-                        return false;
-                    }
-                    
-                    return false;
-                    // TODO: Solve the issue of "K extends Comparable<? super K>"
-                    // return readKey(current).compareTo(readKey(next)) == 0;
-                    //return outerInstance.outerInstance.readKey(outerInstance.current)(outerInstance->outerInstance->readKey(next)) == 0;
-                }
-                
-                void next()
-                {
-                    if (justStarted)
-                    {
-                        justStarted = false;
-                        return;
-                    }
-                    else
-                    {
-                        outerInstance.current = outerInstance.outerInstance.get(outerInstance.current, OFFSET_NEXT);
-                    }
-                }
-                
-            };
-            
-		};
         
     /***************	Abstract Methods	***************/
     public:
@@ -304,10 +300,10 @@ namespace kiwi
         }
         
         // TODO: Check if K has compare() function
-        virtual int copyValues(vector<void*> &result, int const idx, int const myVer, K const min, K const max, map<K, PutData> const& items) = 0;
+        virtual int copyValues(vector<void*>& result, int const idx, int const myVer, K const min, K const max, map<K, PutData> const& items) = 0;
         
         /**
-         * this method is used by scan operations (ONLY) to help pending put operations set a version
+         * This method is used by scan operations (ONLY) to help pending put operations set a version
          * @return sorted map of items matching key range of any currently-pending put operation
          */
         virtual map<K, unique_ptr<PutData>> helpPutInScan(int myVersion, K min, K max)
@@ -318,7 +314,7 @@ namespace kiwi
             for (int i = 0; i < MAX_THREADS; ++i)
             {
                 // make sure data is for a Put operation
-                unique_ptr<PutData> currPut = putArray[pad(i)];
+                shared_ptr<PutData> currPut = putArray[pad(i)];
                 if (currPut == nullptr)
                 {
                     continue;
@@ -394,20 +390,20 @@ namespace kiwi
         
     public:
         /**
-         * this method is used by get operations (ONLY) to help pending put operations set a version
+         * This method is used by get operations (ONLY) to help pending put operations set a version
          * @return newest item matching myKey of any currently-pending put operation
          */
-        virtual unique_ptr<PutData> helpPutInGet(int myVersion, K myKey)
+        virtual shared_ptr<PutData> helpPutInGet(int myVersion, K myKey)
         {
             // marks the most recent put that was found in the thread-array
-            unique_ptr<PutData> newestPut = nullptr;
+            shared_ptr<PutData> newestPut = nullptr;
             int newestVer = NONE;
             
             // go over thread data of all threads
             for (int i = 0; i < MAX_THREADS; ++i)
             {
                 // make sure data is for a Put operation
-                unique_ptr<PutData> currPut = putArray[pad(i)];
+                shared_ptr<PutData> currPut = putArray[pad(i)];
                 if (currPut == nullptr)
                 {
                     continue;
@@ -417,6 +413,9 @@ namespace kiwi
                 K currKey = readKey(currPut->orderIndex);
                 
                 // TODO: Solve the issue of "K extends Comparable<? super K>"
+                // Suggestion: Having operator< defined for shared_ptr allows shared_ptrs to be used as keys in associative containers,
+                // like std::map and std::set.
+                
                 //				if (currKey.compareTo(min) != 0)
                 //				{
                 //					continue;
@@ -441,7 +440,7 @@ namespace kiwi
                 if (currVer > newestVer)
                 {
                     newestVer = currVer;
-                    newestPut = move(currPut);
+                    newestPut = currPut;
                 }
                 // same version for both item - check according to chunk
                 else if (currVer == newestVer)
@@ -449,7 +448,7 @@ namespace kiwi
                     // same chunk & version but current's index is larger - it is newer
                     if (currPut->orderIndex > newestPut->orderIndex)
                     {
-                        newestPut = move(currPut);
+                        newestPut = currPut;
                     }
                 }
             }
@@ -466,8 +465,8 @@ namespace kiwi
         }
         
         
-        /** publish data into thread array - use null to clear **/
-        virtual void publishPut(PutData data)
+        /** Publishes data into thread array - use null to clear **/
+        virtual void publishPut(shared_ptr<PutData> data)
         {
             // TODO: I should create a thread map in a sperate class mapping thread::id to numbers
             // https://stackoverflow.com/questions/15708983/how-can-you-get-the-linux-thread-id-of-a-stdthread
@@ -479,11 +478,11 @@ namespace kiwi
             int idx = 1; // static_cast<int>(this_thread::get_id()) % MAX_THREADS;
             
             // publish into thread array
-            putArray[pad(idx)] = &data;
+            putArray[pad(idx)] = data;
             atomic_thread_fence(memory_order_release); // TODO: verify it indeed equals to Chunk.unsafe.storeFence();
         }
         
-        virtual void debugCalcCounters(DebugStats &ds)
+        virtual void debugCalcCounters(DebugStats& ds)
         {
             ItemsIterator iter = itemsIterator();
             ds.sortedCells += sortedCount;
@@ -521,8 +520,6 @@ namespace kiwi
                 key = iter.getKey();
                 
                 V val = iter.getValue();
-                //int version = iter.getVersion();
-                
                 if (val == nullptr)
                 {
                     ds.nulItemsCount++;
@@ -565,8 +562,7 @@ namespace kiwi
 			return iter;
 		}
 
-		/// <summary>
-		/// gets the data for the given item, or 'null' if it doesn't exist </summary>
+        /** Gets the data for the given item, or 'null' if it doesn't exist */
 		virtual V getData(int orderIndex)
 		{
 			// get index of data in data-array (abs- it might be negative)
@@ -590,31 +586,31 @@ namespace kiwi
 
 		virtual bool isRebalanced()
 		{
-			unique_ptr<Rebalancer<K, V>> &r = getRebalancer();
+			shared_ptr<Rebalancer<K, V>> r = getRebalancer();
 			if (r == nullptr)
 			{
 				return false;
 			}
 
-			return r->isCompacted(); // TODO: Think what to do regarding this
+			return r->isCompacted(); // TODO: isCompacted  is Rebalancer's method - problema..
 
 		}
         
 	protected:
-        /** gets the field of specified offset for given item */
+        /** Gets the field of specified offset for given item */
 		virtual int get(int item, int offset)
 		{
 			return orderArray[item + offset];
 		}
         
-        /** sets the field of specified offset to 'value' for given item */
+        /** Gets the field of specified offset to 'value' for given item */
 		virtual void set(int item, int offset, int value)
 		{
 			orderArray[item + offset] = value;
 		}
 
 	private:
-        /** performs CAS from 'expected' to 'value' for field at specified offset of given item */
+        /** Performs CAS from 'expected' to 'value' for field at specified offset of given item */
 		bool cas(int item, int offset, int expected, int value)
 		{
             // TODO: replace it with atomic_compare_exchange_strong()
@@ -623,20 +619,23 @@ namespace kiwi
             return true;
 		}
 
-		/// <summary>
-		/// binary search for largest-entry smaller than 'key' in sorted part of order-array. </summary>
-		/// <returns> the index of the entry from which to start a linear search -
-		/// if key is found, its previous entry is returned!  </returns>
+        /** 
+         * Binary search for largest-entry smaller than 'key' in sorted part of order-array.
+         * @return the index of the entry from which to start a linear search -
+         * if key is found, its previous entry is returned! 
+         */
 		int binaryFind(K key)
 		{
 			// if there are no sorted keys,or the first item is already larger than key -
 			// return the head node for a regular linear search
-			if ((sortedCount == 0) || (readKey(FIRST_ITEM)(key) >= 0))
-			{
-				return HEAD_NODE;
-			}
+            
+            // TODO: Solve the issue of "K extends Comparable<? super K>"
+//            if ((sortedCount == 0) || (readKey(FIRST_ITEM).compareTo(key) >= 0))
+//			{
+//				return HEAD_NODE;
+//			}
 
-			// TODO check last key to avoid binary search?
+			// TODO: check last key to avoid binary search?
 
 			int start = 0;
 			int end = sortedCount;
@@ -644,8 +643,10 @@ namespace kiwi
 			while (end - start > 1)
 			{
 				int curr = start + (end - start) / 2;
-
-				if (readKey(curr * ORDER_SIZE + FIRST_ITEM)(key) >= 0)
+                
+                // TODO: Solve the issue of "K extends Comparable<? super K>"
+//                if (readKey(curr * ORDER_SIZE + FIRST_ITEM).compareTo(key) >= 0)
+				if (readKey(curr * ORDER_SIZE + FIRST_ITEM) >= 0)
 				{
 					end = curr;
 				}
@@ -658,51 +659,51 @@ namespace kiwi
 			return start * ORDER_SIZE + FIRST_ITEM;
 		}
 
-		/// <summary>
-		///*
-		/// Engage the chunk to a rebalancer r.
-		/// </summary>
-		/// <param name="r"> -- a rebalancer to engage with </param>
-		/// <returns> rebalancer engaged with the chunk </returns>
 	public:
-		virtual Rebalancer<K, V> *engage(Rebalancer<K, V> *r)
+        /**
+         * Engages the chunk to a rebalancer r.
+         *
+         * @param r a rebalancer to engage with
+         * @return rebalancer engaged with the chunk
+         */
+		virtual shared_ptr<Rebalancer<K, V>> engage(const shared_ptr<Rebalancer<K, V>>& r)
 		{
-			rebalancer->compareAndSet(nullptr,r);
-			return rebalancer->get();
+            rebalancer.compare_exchange_strong(nullptr, r);
+            return rebalancer.load();
 		}
 
-		/// <summary>
-		///*
-		/// Checks whether the chunk is engaged with a given rebalancer. </summary>
-		/// <param name="r"> -- a rebalancer object. If r is null, verifies that the chunk is not engaged to any rebalancer </param>
-		/// <returns> true if the chunk is engaged with r, false otherwise </returns>
-		virtual bool isEngaged(Rebalancer<K, V> r)
+        /**
+         * Checks whether the chunk is engaged with a given rebalancer.
+         * @param r a rebalancer object. If r is null, verifies that the chunk is not engaged to any rebalancer
+         * @return true if the chunk is engaged with r, false otherwise
+         */
+		virtual bool isEngaged(const shared_ptr<Rebalancer<K, V>>& r)
 		{
-			return rebalancer->get() == r;
+			return rebalancer.load() == r;
 		}
 
-        /***
-         * Fetch a rebalancer engaged with the chunk.
+        /**
+         * Fetches a rebalancer engaged with the chunk.
          * @return rebalancer object or null if not engaged.
          */
-		virtual unique_ptr<Rebalancer<K, V>> &getRebalancer()
+		virtual shared_ptr<Rebalancer<K, V>> getRebalancer()
 		{
 			return rebalancer.load();
 		}
 
-		/// <summary>
-		///*
-		/// </summary>
-		/// <returns> statistics object containing approximate utilization information. </returns>
-		virtual Statistics *getStatistics()
+        /**
+         * @return statistics object containing approximate utilization information.
+         */
+		virtual Statistics& getStatistics()
 		{
 			return statistics;
 		}
 
-		/// <summary>
-		/// marks this chunk's next pointer so this chunk is marked as deleted </summary>
-		/// <returns> the next chunk pointed to once marked (will not change)  </returns>
-		virtual Chunk<K, V> *markAndGetNext()
+        /** 
+         * Marks this chunk's next pointer so this chunk is marked as deleted
+         * @return the next chunk pointed to once marked (will not change) 
+         */
+		virtual Chunk<K, V>& markAndGetNext()
 		{
 			// new chunks are ready, we mark frozen chunk's next pointer so it won't change
 			// since next pointer can be changed by other split operations we need to do this in a loop - until we succeed
@@ -710,19 +711,20 @@ namespace kiwi
 			{
 				// if chunk is marked - that is ok and its next pointer will not be changed anymore
 				// return whatever chunk is set as next
-				if (next->isMarked())
+                MarkableReference<Chunk<K, V>> mr_next = next.load();
+				if (mr_next.isMarked()) // TODO: Verify it doesn't break the atomicity
 				{
-					return next->getReference();
+					return mr_next.getReference();
 				}
 				// otherwise try to mark it
 				else
 				{
 					// read chunk's current next
-					Chunk<K, V> *savedNext = next->getReference();
+					Chunk<K, V>& savedNext = *mr_next.getReference();
 
 					// try to mark next while keeping the same next chunk - using CAS
 					// if we succeeded then the next pointer we remembered is set and will not change - return it
-					if (next->compareAndSet(savedNext, savedNext, false, true))
+					if (next.compare_exchange_strong(mr_next, MarkableReference<Chunk<K, V>>(savedNext, true)))
 					{
 						return savedNext;
 					}
@@ -730,32 +732,25 @@ namespace kiwi
 			}
 		}
 
-		/// <summary>
-		/// freezes chunk so no more changes can be done in it. also marks pending items as frozen </summary>
-		/// <returns> number of items in this chunk  </returns>
+        /** 
+         * Freezes chunk so no more changes can be done in it. also marks pending items as frozen
+         */
 		virtual void freeze()
 		{
-			int numItems = 0;
-
 			// prevent new puts to the chunk
-			orderIndex->addAndGet(orderArray.size());
+			orderIndex.fetch_add(orderArray.size());
 
 			// go over thread data of all threads
 			for (int i = 0; i < MAX_THREADS; ++i)
 			{
 				// make sure data is for a Put operatio
-				PutData currPut = putArray[pad(i)];
+				shared_ptr<PutData> currPut = putArray[pad(i)];
 				if (currPut == nullptr)
 				{
 					continue;
 				}
-	/*
-				if(currPut.chunk != this)
-				{
-					continue;
-				}
-	*/
-				int idx = currPut->orderIndex;
+
+                int idx = currPut->orderIndex;
 				int version = getVersion(idx);
 
 				// if item is frozen, ignore it - so only handle non-frozen items
@@ -782,6 +777,7 @@ namespace kiwi
 
 		}
 
+        // >>>>>>>>>>>>>>>>>>>>>>>> CONTINUE FROM HERE:
 		/// <summary>
 		/// finds and returns the index of the first item that is equal or larger-than the given min key
 		/// with max version that is equal or less-than given version.
@@ -1044,7 +1040,7 @@ namespace kiwi
 						// if adding version for existing key -- update duplicates statistics
 						if (cmp == 0)
 						{
-							statistics->incrementDuplicates();
+							statistics.incrementDuplicates();
 						}
 
 						break;
@@ -1360,13 +1356,13 @@ namespace kiwi
 		}
 
 	public:
-        /** gets the current version of the given order-item */
+        /** Gets the current version of the given order-item */
 		virtual int getVersion(int orderIndex)
 		{
 			return abs(get(orderIndex, OFFSET_VERSION));
 		}
         
-        /** tries to set (CAS) the version of order-item to specified version
+        /** Tries to set (CAS) the version of order-item to specified version
          * @return whatever version is successfuly set (by this thread or another)	 */
 		virtual int setVersion(int orderIndex, int version)
 		{
