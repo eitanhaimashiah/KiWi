@@ -1,7 +1,7 @@
 #ifndef CompositionalMap_h
 #define CompositionalMap_h
 
-#include <unordered_map>
+#include <map>
 #include <vector>
 
 using namespace std;
@@ -11,8 +11,8 @@ namespace kiwi
 	/**
 	 * Compositional map interface
 	 */
-	template<typename K, typename V>
-	class CompositionalMap : public unordered_map<K, V>
+	template<typename K, typename V, class Comparer = less<K>>
+	class CompositionalMap : public map<K, V, Comparer>
 	{
 
 	public:
@@ -29,7 +29,7 @@ namespace kiwi
 		};
 
 	public:
-		static ThreadLocal<kiwi::CompositionalMap::Vars*> *const counts;
+		static thread_local Vars counts;
 
 		virtual V putIfAbsent(K k, V v) = 0;
 

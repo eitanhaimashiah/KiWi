@@ -24,10 +24,10 @@ namespace kiwi
 	public:
 		class Policy
 		{
-			virtual Chunk<K, V> findNextCandidate() = 0;
+			virtual Chunk<K, V, Comparer> findNextCandidate() = 0;
 			virtual void updateRangeView() = 0;
-			virtual Chunk<K, V> getFirstChunkInRange() = 0;
-			virtual Chunk<K, V> getLastChunkInRange() = 0;
+			virtual Chunk<K, V, Comparer> getFirstChunkInRange() = 0;
+			virtual Chunk<K, V, Comparer> getLastChunkInRange() = 0;
 		};
 
 	public:
@@ -47,8 +47,8 @@ namespace kiwi
 
 
 		public:
-			Chunk<K*, V*> *first;
-			Chunk<K*, V*> *last;
+			Chunk<Comparer, K*, V*> *first;
+			Chunk<Comparer, K*, V*> *last;
 
 			virtual ~PolicyImpl()
 			{
@@ -57,7 +57,7 @@ namespace kiwi
 				delete outerInstance;
 			}
 
-			PolicyImpl(Rebalancer<K, V> *outerInstance, Chunk<K*, V*> *startChunk);
+			PolicyImpl(Rebalancer<K, V> *outerInstance, Chunk<Comparer, K*, V*> *startChunk);
 
 			/// <summary>
 			///*
@@ -65,7 +65,7 @@ namespace kiwi
 			/// <param name="chunk"> candidate chunk for range extension </param>
 			/// <returns> true if not engaged and not null </returns>
 		private:
-			bool isCandidate(Chunk<K*, V*> *chunk);
+			bool isCandidate(Chunk<Comparer, K*, V*> *chunk);
 
 			/// <summary>
 			///*
@@ -73,16 +73,16 @@ namespace kiwi
 			/// @return
 			/// </summary>
 		public:
-			Chunk<K*, V*> *findNextCandidate() override;
+			Chunk<Comparer, K*, V*> *findNextCandidate() override;
 
 			void updateRangeView() override;
 
-			Chunk<K*, V*> *getFirstChunkInRange() override;
+			Chunk<Comparer, K*, V*> *getFirstChunkInRange() override;
 
-			Chunk<K*, V*> *getLastChunkInRange() override;
+			Chunk<Comparer, K*, V*> *getLastChunkInRange() override;
 
 		private:
-			void addToCounters(Chunk<K*, V*> *chunk);
+			void addToCounters(Chunk<Comparer, K*, V*> *chunk);
 
 			void updateRangeFwd();
 
@@ -100,7 +100,7 @@ namespace kiwi
 			delete freezedItems;
 		}
 
-		virtual Policy *createPolicy(Chunk<K, V> *startChunk)
+		virtual Policy *createPolicy(Chunk<K, V, Comparer> *startChunk)
 		{
 			return new PolicyImpl(this, startChunk);
 		}
@@ -110,12 +110,12 @@ namespace kiwi
 
 
 	private:
-		AtomicReference<Chunk<K, V>*> *nextToEngage;
-		Chunk<K, V> *startChunk;
+		AtomicReference<Chunk<K, V, Comparer>*> *nextToEngage;
+		Chunk<K, V, Comparer> *startChunk;
 		ChunkIterator<K, V> *chunkIterator;
 
-		AtomicReference<vector<Chunk<K, V>*>> *compactedChunks = new AtomicReference<vector<Chunk<K, V>*>>(nullptr);
-		AtomicReference<vector<Chunk<K, V>*>> *engagedChunks = new AtomicReference<vector<Chunk<K, V>*>>(nullptr);
+		AtomicReference<vector<Chunk<K, V, Comparer>*>> *compactedChunks = new AtomicReference<vector<Chunk<K, V, Comparer>*>>(nullptr);
+		AtomicReference<vector<Chunk<K, V, Comparer>*>> *engagedChunks = new AtomicReference<vector<Chunk<K, V, Comparer>*>>(nullptr);
 		AtomicBoolean *freezedItems = new AtomicBoolean(false);
 
 
@@ -123,14 +123,14 @@ namespace kiwi
 	   ///***** Constructors ******** </summary>
 
 	public:
-		Rebalancer(Chunk<K, V> *chunk, ChunkIterator<K, V> *chunkIterator)
+		Rebalancer(Chunk<K, V, Comparer> *chunk, ChunkIterator<K, V> *chunkIterator)
 		{
 			if (chunk == nullptr || chunkIterator == nullptr)
 			{
 				throw invalid_argument("Rebalancer construction with null args");
 			}
 
-			nextToEngage = new AtomicReference<Chunk<K,V>>(chunk);
+			nextToEngage = new AtomicReference<Chunk<Comparer, K,V>>(chunk);
 			this->startChunk = chunk;
 			this->chunkIterator = chunkIterator;
 		}
@@ -146,7 +146,7 @@ namespace kiwi
 
 			while (true)
 			{
-				Chunk<K, V> *next = nextToEngage->get();
+				Chunk<K, V, Comparer> *next = nextToEngage->get();
 				if (next == nullptr)
 				{
 					break;
@@ -172,7 +172,7 @@ namespace kiwi
 			}
 
 			p->updateRangeView();
-			vector<Chunk<K, V>*> engaged = createEngagedList(p->getFirstChunkInRange());
+			vector<Chunk<K, V, Comparer>*> engaged = createEngagedList(p->getFirstChunkInRange());
 
 			if (engagedChunks->compareAndSet(nullptr,engaged) && Parameters::countCompactions)
 			{
@@ -216,7 +216,7 @@ namespace kiwi
 			}
 
 			Compactor *c = new CompactorImpl();
-			vector<Chunk<K, V>*> compacted = c->compact(getEngagedChunks(),scanIndex);
+			vector<Chunk<K, V, Comparer>*> compacted = c->compact(getEngagedChunks(),scanIndex);
 
 			// if fail here, another thread succeeded
 			compactedChunks->compareAndSet(nullptr,compacted);
@@ -239,7 +239,7 @@ namespace kiwi
 			return engagedChunks->get() != nullptr;
 		}
 
-		virtual vector<Chunk<K, V>*> getCompactedChunks()
+		virtual vector<Chunk<K, V, Comparer>*> getCompactedChunks()
 		{
 			if (!isCompacted())
 			{
@@ -249,9 +249,9 @@ namespace kiwi
 			return compactedChunks->get();
 		}
 
-		virtual vector<Chunk<K, V>*> getEngagedChunks()
+		virtual vector<Chunk<K, V, Comparer>*> getEngagedChunks()
 		{
-			vector<Chunk<K, V>*> engaged = engagedChunks->get();
+			vector<Chunk<K, V, Comparer>*> engaged = engagedChunks->get();
 			if (engaged.empty())
 			{
 				throw IllegalStateException(L"Trying to get engaged before engagement stage completed");
@@ -262,10 +262,10 @@ namespace kiwi
 
 
 	private:
-		vector<Chunk<K, V>*> createEngagedList(Chunk<K, V> *firstChunkInRange)
+		vector<Chunk<K, V, Comparer>*> createEngagedList(Chunk<K, V, Comparer> *firstChunkInRange)
 		{
-			Chunk<K, V> *current = firstChunkInRange;
-			vector<Chunk<K, V>*> engaged = list<Chunk<K, V>*>();
+			Chunk<K, V, Comparer> *current = firstChunkInRange;
+			vector<Chunk<K, V, Comparer>*> engaged = list<Chunk<K, V, Comparer>*>();
 
 			while (current != nullptr && current->isEngaged(this))
 			{

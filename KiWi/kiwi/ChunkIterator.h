@@ -1,14 +1,17 @@
 #ifndef ChunkIterator_h
 #define ChunkIterator_h
 
+// Class forward declaration
+namespace kiwi { template<typename K, typename V> class Chunk; }
+
 namespace kiwi
 {
 	template<typename K, typename V>
 	class ChunkIterator
 	{
 	public:
-		virtual Chunk<K, V> *getNext(Chunk<K, V> *chunk) = 0;
-		virtual Chunk<K, V> *getPrev(Chunk<K, V> *chunk) = 0;
+		virtual Chunk<K, V, Comparer>* getNext(Chunk<K, V, Comparer> *chunk) = 0;
+		virtual Chunk<K, V, Comparer>* getPrev(Chunk<K, V, Comparer> *chunk) = 0;
 	};
 
 }

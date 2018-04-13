@@ -7,7 +7,7 @@
 namespace kiwi
 {
 	template<typename K, typename V>
-	class ScanIterator : public Iterator<V>
+	class ScanIterator : public iterator<V>
 	{
 	private:
 		const K maxKey; // max key (inclusive) for this scan - beyond it the iterator is finished
@@ -15,7 +15,7 @@ namespace kiwi
 		SortedMap<K, PutData<K, V>*> *const items; // items map - for items that are currently added (from thread-array)
 		Iterator<K> *const iter; // iterator over items map keys
 
-		Chunk<K, V> *chunk; // current chunk, or 'null' if no more items from chunks
+		Chunk<K, V, Comparer> *chunk; // current chunk, or 'null' if no more items from chunks
 
 		K keyItems; // key of current item (next to be returned) in items map
 		K keyChunk; // key of current item from the chunks
@@ -30,7 +30,7 @@ namespace kiwi
 			delete chunk;
 		}
 
-		ScanIterator(K min, K max, int version, Chunk<K, V> *chunk, SortedMap<K, PutData<K, V>*> *items) : maxKey(max), version(version), items(items), iter(items->keySet().begin())
+		ScanIterator(K min, K max, int version, Chunk<K, V, Comparer> *chunk, SortedMap<K, PutData<K, V>*> *items) : maxKey(max), version(version), items(items), iter(items->keySet().begin())
 		{
 
 			this->chunk = chunk;

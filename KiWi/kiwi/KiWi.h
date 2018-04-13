@@ -1,62 +1,51 @@
 #ifndef KiWi_h
 #define KiWi_h
 
-#include "Parameters.h"
-#include "MultiChunkIterator.h"
+#include <atomic>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 #include <list>
 #include <set>
 #include <iostream>
+
+#include "../galios-utils/WorkListHelpers.h"
+#include "ChunkIterator.h"
+#include "Parameters.h"
+#include "MultiChunkIterator.h"
 #include "exceptionhelper.h"
-#include <type_traits>
+
 
 using namespace std;
 
 namespace kiwi
 {
-	template<typename K, typename V>
+	template<typename K, typename V, class Comparer = less<K>>
 	class KiWi : public ChunkIterator<K, V>
 	{
-		static_assert(is_base_of<Comparable<? super K>, K>::value, L"K must inherit from Comparable<? super K>");
-
     /*************** Constants ***************/
 	public:
-//JAVA TO C++ CONVERTER TODO TASK: Native C++ does not allow initialization of static non-const/integral fields in their declarations - choose the conversion option for separate .h and .cpp files:
 		static constexpr int MAX_THREADS = 32;
 		static constexpr int PAD_SIZE = 640;
-//JAVA TO C++ CONVERTER TODO TASK: Native C++ does not allow initialization of static non-const/integral fields in their declarations - choose the conversion option for separate .h and .cpp files:
-		static constexpr int RebalanceSize = 2;
-
+		
     /*************** Members ***************/
 	private:
-		ConcurrentSkipListMap<K, Chunk<K, V>*> *const skiplist; // skiplist of chunks for fast navigation
+		LockFreeSkipListSet<Comparer, K, unique_ptr<Chunk<K, V, Comparer>>> skiplist; // skiplist of chunks for fast navigation
+        const bool withScan; // support scan operations or not (scans add thread-array)
+        vector<ScanData<K>*> scanArray; // TODO: Understand the proper pointer type choice
+        Comparer compare;
+        
 	protected:
-		AtomicInteger *version; // current version to add items with
-	private:
-		const bool withScan; // support scan operations or not (scans add thread-array)
-		vector<ScanData*> const scanArray;
-
+		atomic<int> version; // current version to add items with
 
     /*************** Constructors ***************/
 	public:
-		virtual ~KiWi()
-		{
-			delete skiplist;
-			delete version;
-		}
+		KiWi(const Chunk<K, V, Comparer>& head) : KiWi(head, false) {}
 
-		KiWi(Chunk<K, V> *head) : KiWi(head, false)
+		KiWi(const Chunk<K, V, Comparer>& head, bool withScan) : withScan(withScan), scanArray(MAX_THREADS * (PAD_SIZE + 1))
 		{
-		}
-
-//JAVA TO C++ CONVERTER TODO TASK: Most Java annotations will not have direct C++ equivalents:
-//ORIGINAL LINE: @SuppressWarnings("unchecked") public KiWi(Chunk<K,V> head, boolean withScan)
-		KiWi(Chunk<K, V> *head, bool withScan) : skiplist(new ConcurrentSkipListMap<>()), withScan(withScan), scanArray(vector<ScanData*>(MAX_THREADS * (PAD_SIZE + 1)))
-		{
-			this->version = new AtomicInteger(2); // first version is 2 - since 0 means NONE, and -1 means FREEZE
-
-			this->skiplist->put(head->minKey, head); // add first chunk (head) into skiplist
+			version = AtomicInteger(2);        // first version is 2 - since 0 means NONE, and -1 means FREEZE
+			skiplist.push(head.minKey, &head); // add first chunk (head) into skiplist
 
 			if (withScan)
 			{
@@ -70,7 +59,8 @@ namespace kiwi
 		}
 
         /*************** Methods ***************/
-
+        // <<<<<<<<<<<<<<<<<<<<<<<<
+        
 		static int pad(int idx)
 		{
 			return (PAD_SIZE + idx*PAD_SIZE);
@@ -79,7 +69,7 @@ namespace kiwi
 		virtual V get(K key)
 		{
 			// find chunk matching key
-			Chunk<K, V> *c = skiplist->floorEntry(key).getValue();
+			Chunk<K, V, Comparer> *c = skiplist->floorEntry(key).getValue();
 			c = iterateChunks(c, key);
 
 			// help concurrent put operations (helpPut) set a version
@@ -93,7 +83,7 @@ namespace kiwi
 		virtual void put(K key, V val)
 		{
 			// find chunk matching key
-			Chunk<K, V> *c = skiplist->floorEntry(key).getValue();
+			Chunk<K, V, Comparer> *c = skiplist->floorEntry(key).getValue();
 
 			// repeat until put operation is successful
 			while (true)
@@ -105,7 +95,7 @@ namespace kiwi
 				// if chunk is infant chunk (has a parent), we can't add to it
 				// we need to help finish compact for its parent first, then proceed
 				{
-					Chunk<K, V> *parent = c->creator;
+					Chunk<K, V, Comparer> *parent = c->creator;
 					if (parent != nullptr)
 					{
 						if (rebalance(parent) == nullptr)
@@ -184,7 +174,7 @@ namespace kiwi
 		}
 
 	private:
-		bool shouldRebalance(Chunk<K, V> *c)
+		bool shouldRebalance(Chunk<K, V, Comparer> *c)
 		{
 			// perform actual check only in for pre defined percentage of puts
 			if (ThreadLocalRandom::current().nextInt(100) > Parameters::rebalanceProbPerc)
@@ -210,7 +200,7 @@ namespace kiwi
 	public:
 		virtual void compactAllSerial()
 		{
-			Chunk<K, V> *c = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *c = skiplist->firstEntry().getValue();
 			while (c != nullptr)
 			{
 				c = rebalance(c);
@@ -272,7 +262,7 @@ namespace kiwi
 
 
 			// find chunk matching min key, to start iterator there
-			Chunk<K, V> *c = skiplist->floorEntry(min).getValue();
+			Chunk<K, V, Comparer> *c = skiplist->floorEntry(min).getValue();
 			c = iterateChunks(c, min);
 
 			int itemsCount = 0;
@@ -299,22 +289,22 @@ namespace kiwi
 			return itemsCount;
 		}
 
-		Chunk<K, V> *getNext(Chunk<K, V> *chunk) override
+		Chunk<K, V, Comparer> *getNext(Chunk<K, V, Comparer> *chunk) override
 		{
 			return chunk->next.getReference();
 		}
 
-		Chunk<K, V> *getPrev(Chunk<K, V> *chunk) override
+		Chunk<K, V, Comparer> *getPrev(Chunk<K, V, Comparer> *chunk) override
 		{
 			return nullptr;
 	/*
-			Map.Entry<K, Chunk<K, V>> kChunkEntry = skiplist.lowerEntry(chunk.minKey);
+			Map.Entry<K, Chunk<K, V, Comparer>> kChunkEntry = skiplist.lowerEntry(chunk.minKey);
 			if(kChunkEntry == null) return null;
-			Chunk<K,V> prev = kChunkEntry.getValue();
+			Chunk<Comparer, K,V> prev = kChunkEntry.getValue();
 	
 			while(true)
 			{
-				Chunk<K,V> next = prev.next.getReference();
+				Chunk<Comparer, K,V> next = prev.next.getReference();
 				if(next == chunk) break;
 				if(next == null) {
 					prev = null;
@@ -355,10 +345,10 @@ namespace kiwi
 
 		/// <summary>
 		/// finds and returns the chunk where key should be located, starting from given chunk </summary>
-		Chunk<K, V> *iterateChunks(Chunk<K, V> *c, K key)
+		Chunk<K, V, Comparer> *iterateChunks(Chunk<K, V, Comparer> *c, K key)
 		{
 			// find chunk following given chunk (next)
-			Chunk<K, V> *next = c->next.getReference();
+			Chunk<K, V, Comparer> *next = c->next.getReference();
 
 			// found chunk might be in split process, so not accurate
 			// since skiplist isn't updated atomically in split/compcation, our key might belong in the next chunk
@@ -442,7 +432,7 @@ namespace kiwi
 			return scans;
 		}
 
-		Chunk<K, V> *rebalance(Chunk<K, V> *chunk)
+		Chunk<K, V, Comparer> *rebalance(Chunk<K, V, Comparer> *chunk)
 		{
 			Rebalancer<K, V> *rebalancer = new Rebalancer<K, V>(chunk, this);
 
@@ -453,7 +443,7 @@ namespace kiwi
 			// will be redirected to help the rebalance procedure
 			rebalancer->freeze();
 
-			vector<Chunk<K, V>*> engaged = rebalancer->getEngagedChunks();
+			vector<Chunk<K, V, Comparer>*> engaged = rebalancer->getEngagedChunks();
 			// before starting compaction -- check if another thread has completed this stage
 			if (!rebalancer->isCompacted())
 			{
@@ -463,7 +453,7 @@ namespace kiwi
 
 			// the children list may be generated by another thread
 
-			vector<Chunk<K, V>*> compacted = rebalancer->getCompactedChunks();
+			vector<Chunk<K, V, Comparer>*> compacted = rebalancer->getCompactedChunks();
 
 
 			connectToChunkList(engaged, compacted);
@@ -472,25 +462,25 @@ namespace kiwi
 			return compacted[0];
 		}
 
-		ScanIndex *updateAndGetPendingScans(int currVersion, vector<Chunk<K, V>*> &engaged)
+		ScanIndex *updateAndGetPendingScans(int currVersion, vector<Chunk<K, V, Comparer>*> &engaged)
 		{
 			// TODO: implement versions selection by key
 			K minKey = engaged[0]->minKey;
-			Chunk<K, V> *nextToRange = engaged[engaged.size() - 1]->next.getReference();
+			Chunk<K, V, Comparer> *nextToRange = engaged[engaged.size() - 1]->next.getReference();
 			K maxKey = nextToRange == nullptr ? nullptr : nextToRange->minKey;
 
 			return new ScanIndex(getScansArray(currVersion), currVersion, minKey, maxKey);
 		}
 
-		void updateIndex(vector<Chunk<K, V>*> &engagedChunks, vector<Chunk<K, V>*> &compacted)
+		void updateIndex(vector<Chunk<K, V, Comparer>*> &engagedChunks, vector<Chunk<K, V, Comparer>*> &compacted)
 		{
-			vector<Chunk<K, V>*>::const_iterator iterEngaged = engagedChunks.begin();
-			vector<Chunk<K, V>*>::const_iterator iterCompacted = compacted.begin();
+			vector<Chunk<K, V, Comparer>*>::const_iterator iterEngaged = engagedChunks.begin();
+			vector<Chunk<K, V, Comparer>*>::const_iterator iterCompacted = compacted.begin();
 
 //JAVA TO C++ CONVERTER TODO TASK: Java iterators are only converted within the context of 'while' and 'for' loops:
-			Chunk<K, V> *firstEngaged = iterEngaged.next();
+			Chunk<K, V, Comparer> *firstEngaged = iterEngaged.next();
 //JAVA TO C++ CONVERTER TODO TASK: Java iterators are only converted within the context of 'while' and 'for' loops:
-			Chunk<K, V> *firstCompacted = iterCompacted.next();
+			Chunk<K, V, Comparer> *firstCompacted = iterCompacted.next();
 
 			skiplist->replace(firstEngaged->minKey,firstEngaged, firstCompacted);
 
@@ -502,7 +492,7 @@ namespace kiwi
 			// compacted chunks are still accessible through the first updated chunk
 			while (iterEngaged != engagedChunks.end())
 			{
-				Chunk<K, V> *engagedToRemove = *iterEngaged;
+				Chunk<K, V, Comparer> *engagedToRemove = *iterEngaged;
 				skiplist->remove(engagedToRemove->minKey,engagedToRemove);
 				iterEngaged++;
 			}
@@ -512,7 +502,7 @@ namespace kiwi
 
 			while (iterCompacted != compacted.end())
 			{
-				Chunk<K, V> *compactedToAdd = *iterCompacted;
+				Chunk<K, V, Comparer> *compactedToAdd = *iterCompacted;
 
 //JAVA TO C++ CONVERTER TODO TASK: Multithread locking is not converted to native C++ unless you choose one of the options on the 'Miscellaneous Options' dialog:
 				synchronized(compactedToAdd)
@@ -524,12 +514,12 @@ namespace kiwi
 			}
 		}
 
-		void connectToChunkList(vector<Chunk<K, V>*> &engaged, vector<Chunk<K, V>*> &children)
+		void connectToChunkList(vector<Chunk<K, V, Comparer>*> &engaged, vector<Chunk<K, V, Comparer>*> &children)
 		{
 
 			updateLastChild(engaged,children);
 
-			Chunk<K, V> *firstEngaged = engaged[0];
+			Chunk<K, V, Comparer> *firstEngaged = engaged[0];
 
 			// replace in linked list - we now need to find previous chunk to our chunk
 			// and CAS its next to point to c1, which is the same c1 for all threads who reach this point.
@@ -538,10 +528,10 @@ namespace kiwi
 			{
 				// start with first chunk (i.e., head)
 
-				unordered_map::Entry<K, Chunk<K, V>*> *lowerEntry = skiplist->lowerEntry(firstEngaged->minKey);
+				unordered_map::Entry<K, Chunk<K, V, Comparer>*> *lowerEntry = skiplist->lowerEntry(firstEngaged->minKey);
 
-				Chunk<K, V> *prev = lowerEntry != nullptr ? lowerEntry->getValue() : nullptr;
-				Chunk<K, V> *curr = (prev != nullptr) ? prev->next.getReference() : nullptr;
+				Chunk<K, V, Comparer> *prev = lowerEntry != nullptr ? lowerEntry->getValue() : nullptr;
+				Chunk<K, V, Comparer> *curr = (prev != nullptr) ? prev->next.getReference() : nullptr;
 
 				// if didn't succeed to find preve through the skip list -- start from the head
 				if (prev == nullptr || curr != firstEngaged)
@@ -582,11 +572,11 @@ namespace kiwi
 
 		}
 
-		void updateLastChild(const vector<Chunk<K, V>>& engaged, const vector<Chunk<K, V>>& children)
+		void updateLastChild(const vector<Chunk<K, V, Comparer>>& engaged, const vector<Chunk<K, V, Comparer>>& children)
 		{
-			Chunk<K, V>& lastEngaged = engaged[engaged.size() - 1];
-			Chunk<K, V>& nextToLast = lastEngaged->markAndGetNext();
-			Chunk<K, V> *lastChild = children[children.size() - 1];
+			Chunk<K, V, Comparer>& lastEngaged = engaged[engaged.size() - 1];
+			Chunk<K, V, Comparer>& nextToLast = lastEngaged->markAndGetNext();
+			Chunk<K, V, Comparer> *lastChild = children[children.size() - 1];
 
 			lastChild->next.compareAndSet(nullptr, nextToLast, false, false);
 		}
@@ -603,7 +593,6 @@ namespace kiwi
 
 			// publish into thread array
 			scanArray[pad(idx)] = data;
-			//Chunk.unsafe.storeFence();
 		}
 
 
@@ -611,7 +600,7 @@ namespace kiwi
 		virtual int debugCountKeys()
 		{
 			int keys = 0;
-			Chunk<K, V> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
@@ -624,7 +613,7 @@ namespace kiwi
 		virtual int debugCountKeysTotal()
 		{
 			int keys = 0;
-			Chunk<K, V> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
@@ -636,7 +625,7 @@ namespace kiwi
 		virtual int debugCountDups()
 		{
 			int dups = 0;
-			Chunk<K, V> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
@@ -647,7 +636,7 @@ namespace kiwi
 		}
 		virtual void debugPrint()
 		{
-			Chunk<K, V> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
@@ -684,7 +673,7 @@ namespace kiwi
 
 		virtual DebugStats *calcChunkStatistics()
 		{
-			Chunk<K, V> *curr = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *curr = skiplist->firstEntry().getValue();
 			DebugStats *ds = new DebugStats();
 
 			while (curr != nullptr)
@@ -700,8 +689,8 @@ namespace kiwi
 
 		virtual int debugCountDuplicates()
 		{
-			vector<Chunk<K, V>*> chunks = list<Chunk<K, V>*>();
-			Chunk<K, V> *curr = skiplist->firstEntry().getValue();
+			vector<Chunk<K, V, Comparer>*> chunks = list<Chunk<K, V, Comparer>*>();
+			Chunk<K, V, Comparer> *curr = skiplist->firstEntry().getValue();
 
 			while (curr != nullptr)
 			{
@@ -757,7 +746,9 @@ namespace kiwi
 
 
 	};
-
+    
+    template<typename K, typename V, class Comparer = less<K>>
+    int KiWi<K, V, Comparer>::RebalanceSize = 2;
 }
 
 #endif /* KiWi_h */

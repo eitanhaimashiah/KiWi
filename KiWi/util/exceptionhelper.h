@@ -1,10 +1,13 @@
 #ifndef exceptionhelper_h
 #define exceptionhelper_h
 
+#include <string>
 #include <stdexcept>
 
 using namespace std;
 
+// TODO: We can easily replase all of the class in one class named Exception.
+// mabye we can instead use directly in the exception class or its sub-classes (e.g. invalid_argument)
 class IllegalStateException : public exception
 {
 private:

@@ -4,6 +4,8 @@
 #include <vector>
 #include <stdexcept>
 
+#include "Chunk.h"
+
 using namespace std;
 
 namespace kiwi
@@ -11,61 +13,62 @@ namespace kiwi
 	template<typename K, typename V>
 	class MultiChunkIterator
 	{
+        using typename Chunk<K, V, Comparer>::ItemsIterator;
+        
 	private:
-		Chunk<K, V> *first;
-		Chunk<K, V> *last;
-		Chunk<K, V> *current;
-		Chunk<K, V>::ItemsIterator *iterCurrItem;
+        // TODO: Check if I can change to ref, the current problem is comparing first (of ref type) to current
+		Chunk<K, V, Comparer>* first;
+		Chunk<K, V, Comparer>* last;
+		Chunk<K, V, Comparer>* current;
+		shared_ptr<ItemsIterator> iterCurrItem;
 		bool hasNextInChunk = false;
 
-	public:
-		virtual ~MultiChunkIterator()
-		{
-			delete first;
-			delete last;
-			delete current;
-			delete iterCurrItem;
-		}
+        MultiChunkIterator() {}
 
-	private:
-		MultiChunkIterator()
-		{
-		}
-
-		/// <summary>
-		///*
-		/// </summary>
-		/// <param name="chunks"> - Range of chunks to be iterated </param>
 	public:
-		MultiChunkIterator(vector<Chunk<K, V>*> &chunks)
+        /***
+         * @param chunks - Range of chunks to be iterated
+         */
+		MultiChunkIterator(vector<Chunk<K, V, Comparer>*>& chunks)
 		{
-			if (chunks.empty() || chunks.empty())
+			if (chunks.empty())
 			{
 				throw invalid_argument("Iterator should have at least one item");
 			}
 			first = chunks[0];
 			last = chunks[chunks.size() - 1];
 			current = first;
+            
 			iterCurrItem = current->itemsIterator();
 			hasNextInChunk = iterCurrItem->hasNext();
 		}
 
-		MultiChunkIterator(int oi, vector<Chunk<K, V>*> &chunks)
+		MultiChunkIterator(int oi, vector<shared_ptr<Chunk<K, V, Comparer>>>& chunks)
 		{
-			if (chunks.empty() || chunks.empty())
+			if (chunks.empty())
 			{
 				throw invalid_argument("Iterator should have at least one item");
 			}
-			first = chunks[0];
-			last = chunks[chunks.size() - 1];
-			current = first;
-
+            first = chunks[0];
+            last = chunks[chunks.size() - 1];
+            current = first;
+            
 			iterCurrItem = current->itemsIterator(oi);
 			hasNextInChunk = iterCurrItem->hasNext();
 		}
-
-
-		virtual bool hasNext()
+        
+        /***
+         * Copy constructor
+         */
+        MultiChunkIterator(const MultiChunkIterator<K, V>& other):
+        first(other.first),
+        last(other.last),
+        current(other.current),
+        hasNextInChunk(other.hasNextInChunk),
+        iterCurrItem(other.iterCurrItem? (new ItemsIterator(*other.iterCurrItem)) : nullptr)
+        {}
+        
+        virtual bool hasNext()
 		{
 			if (iterCurrItem->hasNext())
 			{
@@ -75,7 +78,7 @@ namespace kiwi
 			// cache here the information to improve next()'s performance
 			hasNextInChunk = false;
 
-			Chunk<K, V> *nonEmpty = findNextNonEmptyChunk();
+			Chunk<K, V, Comparer>* nonEmpty = findNextNonEmptyChunk();
 			if (nonEmpty == nullptr)
 			{
 				return false;
@@ -85,14 +88,14 @@ namespace kiwi
 		}
 
 	private:
-		Chunk<K, V> *findNextNonEmptyChunk()
+		Chunk<K, V, Comparer>* findNextNonEmptyChunk()
 		{
 			if (current == last)
 			{
 				return nullptr;
 			}
 
-			Chunk<K, V> *chunk = current->next.getReference();
+			Chunk<K, V, Comparer>* chunk = current->next.getReference();
 			if (chunk == nullptr)
 			{
 				return nullptr;
@@ -100,7 +103,7 @@ namespace kiwi
 
 			while (chunk != nullptr)
 			{
-				Chunk::ItemsIterator *iter = chunk->itemsIterator();
+				auto iter = chunk->itemsIterator();
 				if (iter->hasNext())
 				{
 					return chunk;
@@ -117,11 +120,11 @@ namespace kiwi
 			return nullptr;
 		}
 
-		/// <summary>
-		/// After next() iterator points to some item.
-		/// The item's Key, Value and Version can be fetched by corresponding getters.
-		/// </summary>
 	public:
+        /**
+         * After next() iterator points to some item.
+         * The item's Key, Value and Version can be fetched by corresponding getters.
+         */
 		virtual void next()
 		{
 			if (hasNextInChunk)
@@ -130,7 +133,7 @@ namespace kiwi
 				return;
 			}
 
-			Chunk<K, V> *nonEmpty = findNextNonEmptyChunk();
+			Chunk<K, V, Comparer>* nonEmpty = findNextNonEmptyChunk();
 
 			current = nonEmpty;
 
@@ -158,34 +161,16 @@ namespace kiwi
 			return iterCurrItem->getVersion();
 		}
 
-		/// <summary>
-		///*
-		/// Fetches VersionsIterator to iterate versions of current key.
-		/// Will help to separate versions and keys data structures in future optimizations. </summary>
-		/// <returns> VersionsIterator object </returns>
-		virtual Chunk::ItemsIterator::VersionsIterator *versionsIterator()
+        /**
+         * Fetches VersionsIterator to iterate versions of current key.
+         * Will help to separate versions and keys data structures in future optimizations.
+         * @return VersionsIterator object
+         */
+		virtual typename Chunk<K, V, Comparer>::ItemsIterator::VersionsIterator* versionsIterator()
 		{
 			return iterCurrItem->versionsIterator();
 		}
-
-		/// <summary>
-		///*
-		/// </summary>
-		/// <returns> A copy  with the same state. </returns>
-		virtual MultiChunkIterator<K, V> *cloneIterator()
-		{
-			MultiChunkIterator<K, V> *newIterator = new MultiChunkIterator<K, V>();
-			newIterator->first = this->first;
-			newIterator->last = this->last;
-			newIterator->current = this->current;
-			newIterator->hasNextInChunk = this->hasNextInChunk;
-
-			newIterator->iterCurrItem = iterCurrItem->cloneIterator();
-
-			return newIterator;
-		}
 	};
-
 }
 
 #endif /* MultiChunkIterator_h */

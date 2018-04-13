@@ -9,7 +9,7 @@ namespace kiwi
 	{
 	}
 
-	Rebalancer<K, V>::PolicyImpl::PolicyImpl(Rebalancer<K, V> *outerInstance, Chunk<K*, V*> *startChunk) : Policy(outerInstance), outerInstance(outerInstance)
+	Rebalancer<K, V>::PolicyImpl::PolicyImpl(Rebalancer<K, V> *outerInstance, Chunk<Comparer, K*, V*> *startChunk) : Policy(outerInstance), outerInstance(outerInstance)
 	{
 		if (startChunk == nullptr)
 		{
@@ -22,7 +22,7 @@ namespace kiwi
 		maxAfterMergeItems = static_cast<int>(Chunk::MAX_ITEMS * MAX_AFTER_MERGE_PART);
 	}
 
-	bool Rebalancer<K, V>::PolicyImpl::isCandidate(Chunk<K*, V*> *chunk)
+	bool Rebalancer<K, V>::PolicyImpl::isCandidate(Chunk<Comparer, K*, V*> *chunk)
 	{
 		// do not take chunks that are engaged with another rebalancer or infant
 		if (chunk == nullptr || !chunk->isEngaged(nullptr) || chunk->isInfant())
@@ -32,7 +32,7 @@ namespace kiwi
 		return true;
 	}
 
-	Chunk<K*, V*> *Rebalancer<K, V>::PolicyImpl::findNextCandidate()
+	Chunk<Comparer, K*, V*> *Rebalancer<K, V>::PolicyImpl::findNextCandidate()
 	{
 
 		updateRangeView();
@@ -43,9 +43,9 @@ namespace kiwi
 			return nullptr;
 		}
 
-		Chunk<K*, V*> *next = outerInstance->chunkIterator->getNext(last);
-		Chunk<K*, V*> *prev = outerInstance->chunkIterator->getPrev(first);
-		Chunk<K*, V*> *candidate = nullptr;
+		Chunk<Comparer, K*, V*> *next = outerInstance->chunkIterator->getNext(last);
+		Chunk<Comparer, K*, V*> *prev = outerInstance->chunkIterator->getPrev(first);
+		Chunk<Comparer, K*, V*> *candidate = nullptr;
 
 		if (!isCandidate(next))
 		{
@@ -100,17 +100,17 @@ namespace kiwi
 
 	}
 
-	Chunk<K*, V*> *Rebalancer<K, V>::PolicyImpl::getFirstChunkInRange()
+	Chunk<Comparer, K*, V*> *Rebalancer<K, V>::PolicyImpl::getFirstChunkInRange()
 	{
 		return first;
 	}
 
-	Chunk<K*, V*> *Rebalancer<K, V>::PolicyImpl::getLastChunkInRange()
+	Chunk<Comparer, K*, V*> *Rebalancer<K, V>::PolicyImpl::getLastChunkInRange()
 	{
 		return last;
 	}
 
-	void Rebalancer<K, V>::PolicyImpl::addToCounters(Chunk<K*, V*> *chunk)
+	void Rebalancer<K, V>::PolicyImpl::addToCounters(Chunk<Comparer, K*, V*> *chunk)
 	{
 		itemsInRange += chunk->getStatistics().getCompactedCount();
 		chunksInRange++;
@@ -121,7 +121,7 @@ namespace kiwi
 
 		while (true)
 		{
-			Chunk<K*, V*> *next = outerInstance->chunkIterator->getNext(last);
+			Chunk<Comparer, K*, V*> *next = outerInstance->chunkIterator->getNext(last);
 			if (next == nullptr || !next->isEngaged(outerInstance))
 			{
 				break;
@@ -135,7 +135,7 @@ namespace kiwi
 	{
 		 while (true)
 		 {
-			 Chunk<K*, V*> *prev = outerInstance->chunkIterator->getPrev(first);
+			 Chunk<Comparer, K*, V*> *prev = outerInstance->chunkIterator->getPrev(first);
 			 if (prev == nullptr || !prev->isEngaged(outerInstance))
 			 {
 				 break;

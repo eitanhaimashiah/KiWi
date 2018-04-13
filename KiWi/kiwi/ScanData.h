@@ -2,7 +2,6 @@
 #define ScanData_h
 
 #include <atomic>
-#include "Chunk.h"
 
 using namespace std;
 
@@ -13,7 +12,10 @@ namespace kiwi
     class ScanData
     {
     public:
-        ScanData(K min, K max) : min(min), max(max), version(Chunk<int,int>::NONE) {}
+        // TODO: Taken from the Chunk class, think of better idea...
+        static constexpr int NONE = 0;;
+        
+        ScanData(K min, K max) : min(min), max(max), version(NONE) {}
         
         atomic<int> const version;
         const K min;

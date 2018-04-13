@@ -8,12 +8,12 @@ using namespace std;
 
 namespace kiwi
 {
-	template<typename K, typename V>
+	template<typename K, typename V, class Comparer = less<K>>
 	class Compactor
 	{
 
 	public:
-		virtual vector<Chunk<K, V>*> compact(vector<Chunk<K, V>*> &frozenChunks, ScanIndex<K> *scanIndex) = 0;
+		virtual vector<Chunk<K, V, Comparer>*> compact(vector<Chunk<K, V, Comparer>*> &frozenChunks, ScanIndex<K> *scanIndex) = 0;
 	};
 
 }

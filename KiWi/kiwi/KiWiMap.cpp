@@ -1,20 +1,16 @@
-
-
 #include "KiWiMap.h"
-#include "ChunkInt.h"
 
 namespace kiwi
 {
-	using sun::reflect::generics::reflectiveObjects::NotImplementedException;
-bool KiWiMap::SupportScan = true;
-int KiWiMap::RebalanceSize = 2;
+    bool KiWiMap::SupportScan = true;
+    int KiWiMap::RebalanceSize = 2;
 
 	KiWiMap::KiWiMap()
 	{
 		ChunkInt::initPool();
-		KiWi->RebalanceSize = RebalanceSize;
+        KiWi<int,int>::RebalanceSize = RebalanceSize;
 		ChunkInt tempVar();
-		this->kiwi = new KiWi<Integer,Integer>(&tempVar, SupportScan);
+		kiwi = new KiWi<Integer,Integer>(&tempVar, SupportScan);
 	}
 
 	Integer KiWiMap::putIfAbsent(Integer k, Integer v)
