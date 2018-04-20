@@ -2,13 +2,12 @@
 
 namespace kiwi
 {
-
-    atomic<int> nextChunk;
-    vector<ChunkInt> chunks;
+    vector<ChunkInt> ChunkInt::chunks;
+    atomic<int> ChunkInt::nextChunk (0);
 
 	void ChunkInt::setPoolSize(int numChunks)
 	{
-		chunks = vector<ChunkInt*>(numChunks);
+		chunks = vector<ChunkInt>(numChunks);
 
 	}
 
@@ -16,10 +15,10 @@ namespace kiwi
 	{
 		if (chunks.size() > 0)
 		{
-			nextChunk = atomic<int>(0);
+            nextChunk.store(0);
 			for (int i = 0; i < chunks.size(); ++i)
 			{
-				chunks[i] = ChunkInt(nullptr, nullptr);
+				chunks[i] = ChunkInt(0, nullptr);
 			}
 		}
 	}
@@ -28,15 +27,15 @@ namespace kiwi
 	{
 	}
 
-	ChunkInt::ChunkInt(Integer minKey, ChunkInt *creator) : Chunk<int,int>(minKey, DATA_SIZE, creator)
+	ChunkInt::ChunkInt(int minKey, shared_ptr<Chunk<int, int>> creator) : Chunk<int,int>(minKey, DATA_SIZE, creator)
 	{
 	}
 
-	Chunk<Integer, Integer> *ChunkInt::newChunk(Integer minKey)
+	Chunk<int, int> *ChunkInt::newChunk(int minKey)
 	{
 		if (chunks.empty())
 		{
-			return new ChunkInt(minKey, this);
+			return ChunkInt(minKey, this);
 		}
 		else
 		{
@@ -49,7 +48,7 @@ namespace kiwi
 		}
 	}
 
-	Integer ChunkInt::readKey(int orderIndex)
+	int ChunkInt::readKey(int orderIndex)
 	{
 		return get(orderIndex, OFFSET_KEY);
 	}
@@ -65,7 +64,7 @@ namespace kiwi
 		return dataArray[di];
 	}
 
-	int ChunkInt::copyValues(vector<void*> &result, int idx, int myVer, Integer min, Integer max, SortedMap<Integer, PutData<Integer, Integer>*> *items)
+	int ChunkInt::copyValues(vector<void*> &result, int idx, int myVer, const int min, const int max, map<int, PutData> const& items)
 	{
 		int oi = 0;
 
@@ -198,7 +197,7 @@ namespace kiwi
 		return itemCount;
 	}
 
-	int ChunkInt::allocate(Integer key, Integer data)
+	int ChunkInt::allocate(int key, int data)
 	{
 		// allocate items in order and data array => data-array only contains int-sized data
 		int oi = baseAllocate(data == nullptr ? 0 : DATA_SIZE);
@@ -221,7 +220,7 @@ namespace kiwi
 		return oi;
 	}
 
-	int ChunkInt::allocateSerial(int key, Integer data)
+	int ChunkInt::allocateSerial(int key, int data)
 	{
 		// allocate items in order and data array => data-array only contains int-sized data
 		int oi = baseAllocateSerial(data == nullptr ? 0 : DATA_SIZE);

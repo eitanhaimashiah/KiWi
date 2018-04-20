@@ -9,14 +9,14 @@ namespace kiwi
 	{
 		ChunkInt::initPool();
         KiWi<int,int>::RebalanceSize = RebalanceSize;
-		ChunkInt tempVar();
-		kiwi = new KiWi<Integer,Integer>(&tempVar, SupportScan);
+        unique_ptr<Chunk<int, int>> p = unique_ptr<Chunk<int, int>>(new ChunkInt);
+		kiwi = KiWi<int,int>(, SupportScan);
 	}
 
-	Integer KiWiMap::putIfAbsent(Integer k, Integer v)
+	int KiWiMap::putIfAbsent(int k, int v)
 	{
-		kiwi->put(k, v);
-		return nullptr; // can implement return value but not necessary
+		kiwi.put(k, v);
+		return 0; // can implement return value but not necessary
 	}
 
 	int KiWiMap::size()
@@ -29,53 +29,39 @@ namespace kiwi
 		return false;
 	}
 
-	Integer KiWiMap::get(void *o)
+	int* KiWiMap::get(int k)
 	{
-		return kiwi->get(static_cast<Integer>(o));
+		return kiwi.get(k);
 	}
 
-	Integer KiWiMap::put(Integer k, Integer v)
+	int KiWiMap::put(int k, int v)
 	{
-		kiwi->put(k, v);
-		return nullptr;
+		kiwi.put(k, v);
+		return 0;
 	}
 
-	Integer KiWiMap::remove(void *o)
+	int KiWiMap::remove(int k)
 	{
-		kiwi->put(static_cast<Integer>(o), nullptr);
-		return nullptr;
+		kiwi.put(k, -1); // TODO: Should replace -1 with nullptr (maybe value type should be ptr)
+		return 0;
 	}
 
-	int KiWiMap::getRange(vector<Integer> &result, Integer min, Integer max)
+	int KiWiMap::getRange(vector<int> &result, int min, int max)
 	{
-		return kiwi->scan(result,min,max);
-		/*
-		    	Iterator<Integer> iter = kiwi.scan(min, max);
-		    	int i;
-		    	
-		    	for (i = 0; (iter.hasNext()) && (i < result.length); ++i)
-		    	{
-		    		result[i] = iter.next();
-		    	}
-		    	
-		    	return i;
-		*/
+		return kiwi.scan(result,min,max);
 	}
 
-template<typename T1, typename T1>
-//JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
-//ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-	void KiWiMap::putAll(unordered_map<T1> map)
+	void KiWiMap::putAll(map<int, int> map)
 	{
 		for (auto key : map)
 		{
-			kiwi->put(key.first, map[key.first]);
+			kiwi.put(key.first, map[key.first]);
 		}
 	}
 
-	bool KiWiMap::containsKey(void *o)
+	bool KiWiMap::containsKey(int k)
 	{
-		return get(o) != nullptr;
+		return get(k) != nullptr;
 	}
 
 	void KiWiMap::clear()
@@ -83,52 +69,52 @@ template<typename T1, typename T1>
 		//this.kiwi.debugPrint();
 		ChunkInt::initPool();
 		ChunkInt tempVar();
-		this->kiwi = new KiWi<Integer,Integer>(&tempVar, SupportScan);
+		this->kiwi = new KiWi<int,int>(&tempVar, SupportScan);
 	}
 
-	Set<Integer> *KiWiMap::keySet()
+	set<int> *KiWiMap::keySet()
 	{
 		throw NotImplementedException();
 	}
 
-	Collection<Integer> *KiWiMap::values()
+	set<int> *KiWiMap::values()
 	{
 		throw NotImplementedException();
 	}
 
-	Set<Entry<Integer, Integer>*> *KiWiMap::entrySet()
+	set<pair<int, int>> KiWiMap::entrySet()
 	{
 		throw NotImplementedException();
 	}
 
-	bool KiWiMap::containsValue(void *o)
+	bool KiWiMap::containsValue(int v)
 	{
 		throw NotImplementedException();
 	}
 
 	void KiWiMap::compactAllSerial()
 	{
-		kiwi->compactAllSerial();
+		kiwi.compactAllSerial();
 	}
 
 	int KiWiMap::debugCountDups()
 	{
-		return kiwi->debugCountDups();
+		return kiwi.debugCountDups();
 	}
 
 	int KiWiMap::debugCountKeys()
 	{
-		return kiwi->debugCountKeys();
+		return kiwi.debugCountKeys();
 	}
 
 	void KiWiMap::debugPrint()
 	{
-		kiwi->debugPrint();
+		kiwi.debugPrint();
 	}
 
 	int KiWiMap::debugCountDuplicates()
 	{
-		return kiwi->debugCountDuplicates();
+		return kiwi.debugCountDuplicates();
 	}
 
 	int KiWiMap::debugCountChunks()
@@ -138,6 +124,6 @@ template<typename T1, typename T1>
 
 	void KiWiMap::calcChunkStatistics()
 	{
-		kiwi->calcChunkStatistics();
+		kiwi.calcChunkStatistics();
 	}
 }

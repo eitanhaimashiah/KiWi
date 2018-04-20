@@ -3,17 +3,19 @@
 
 #include <atomic>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 #include <list>
 #include <set>
 #include <iostream>
+#include <mutex>
 
-#include "../galios-utils/WorkListHelpers.h"
+#include "PutData.h"
+#include "LockFreeSkipListSet.h"
 #include "ChunkIterator.h"
 #include "Parameters.h"
 #include "MultiChunkIterator.h"
 #include "exceptionhelper.h"
+#include "../util/Utils.h"
 
 
 using namespace std;
@@ -21,60 +23,51 @@ using namespace std;
 namespace kiwi
 {
 	template<typename K, typename V, class Comparer = less<K>>
-	class KiWi : public ChunkIterator<K, V>
+	class KiWi : public ChunkIterator<K, V, Comparer>
 	{
     /*************** Constants ***************/
 	public:
 		static constexpr int MAX_THREADS = 32;
 		static constexpr int PAD_SIZE = 640;
 		
+        static int RebalanceSize;
     /*************** Members ***************/
 	private:
 		LockFreeSkipListSet<Comparer, K, unique_ptr<Chunk<K, V, Comparer>>> skiplist; // skiplist of chunks for fast navigation
-        const bool withScan; // support scan operations or not (scans add thread-array)
-        vector<ScanData<K>*> scanArray; // TODO: Understand the proper pointer type choice
+        const bool withScan;            // support scan operations or not (scans add thread-array)
+        vector<shared_ptr<ScanData<K>>> scanArray; // TODO: Understand the proper pointer type choice
         Comparer compare;
+        mutex _mutex;
         
 	protected:
 		atomic<int> version; // current version to add items with
 
     /*************** Constructors ***************/
 	public:
-		KiWi(const Chunk<K, V, Comparer>& head) : KiWi(head, false) {}
+		KiWi(unique_ptr<Chunk<K, V, Comparer>> head) : KiWi(head, false) {}
 
-		KiWi(const Chunk<K, V, Comparer>& head, bool withScan) : withScan(withScan), scanArray(MAX_THREADS * (PAD_SIZE + 1))
+		KiWi(unique_ptr<Chunk<K, V, Comparer>> head, bool withScan) :
+        withScan(withScan),
+        version(2),  // first version is 2 - since 0 means NONE, and -1 means FREEZE
+        scanArray(withScan? MAX_THREADS * (PAD_SIZE + 1) : 0)
 		{
-			version = AtomicInteger(2);        // first version is 2 - since 0 means NONE, and -1 means FREEZE
 			skiplist.push(head.minKey, &head); // add first chunk (head) into skiplist
-
-			if (withScan)
-			{
-				//this.threadArray = new ThreadData[MAX_THREADS];
-			}
-			else
-			{
-				//this.threadArray = null;
-				this->scanArray.clear();
-			}
 		}
 
         /*************** Methods ***************/
-        // <<<<<<<<<<<<<<<<<<<<<<<<
-        
 		static int pad(int idx)
 		{
 			return (PAD_SIZE + idx*PAD_SIZE);
 		}
 
-		virtual V get(K key)
+		virtual V* get(K key)
 		{
 			// find chunk matching key
-			Chunk<K, V, Comparer> *c = skiplist->floorEntry(key).getValue();
+			Chunk<K, V, Comparer> *c = skiplist.floorEntry(key).getValue();
 			c = iterateChunks(c, key);
 
 			// help concurrent put operations (helpPut) set a version
-			PutData<K, V> *pd = nullptr;
-			pd = c->helpPutInGet(version->get(), key);
+			PutData* pd = c->helpPutInGet(version.load(), key);
 
 			// find item matching key inside chunk
 			return c->find(key, pd);
@@ -83,7 +76,7 @@ namespace kiwi
 		virtual void put(K key, V val)
 		{
 			// find chunk matching key
-			Chunk<K, V, Comparer> *c = skiplist->floorEntry(key).getValue();
+			Chunk<K, V, Comparer> *c = skiplist.floorEntry(key).getValue();
 
 			// repeat until put operation is successful
 			while (true)
@@ -125,8 +118,7 @@ namespace kiwi
 					// publish put operation in thread array
 					// publishing BEFORE setting the version so that other operations can see our value and help
 					// this is in order to prevent us from adding an item with an older version that might be missed by others (scan/get)
-					PutData<> tempVar(c, oi);
-					c->publishPut(&tempVar);
+					c->publishPut(make_shared<PutData>(c, oi));
 
 
 					if (c->isFreezed())
@@ -149,7 +141,7 @@ namespace kiwi
 
 				// if chunk is frozen, clear published data, compact it and retry
 				// (when freezing, version is set to FREEZE)
-				if (myVersion == Chunk::FREEZE_VERSION)
+				if (myVersion == Chunk<K, V, Comparer>::FREEZE_VERSION)
 				{
 					// clear thread-array item if needed
 					c->publishPut(nullptr);
@@ -177,7 +169,7 @@ namespace kiwi
 		bool shouldRebalance(Chunk<K, V, Comparer> *c)
 		{
 			// perform actual check only in for pre defined percentage of puts
-			if (ThreadLocalRandom::current().nextInt(100) > Parameters::rebalanceProbPerc)
+            if (util::Utils::nextInt(100) > Parameters::rebalanceProbPerc)
 			{
 				return false;
 			}
@@ -189,7 +181,7 @@ namespace kiwi
 			}
 			int numOfItems = c->getNumOfItems();
 
-			if ((c->sortedCount == 0 && numOfItems << 3 > Chunk::MAX_ITEMS) || (c->sortedCount > 0 && (c->sortedCount * Parameters::sortedRebalanceRatio) < numOfItems))
+			if ((c->sortedCount == 0 && numOfItems << 3 > Chunk<K, V, Comparer>::MAX_ITEMS) || (c->sortedCount > 0 && (c->sortedCount * Parameters::sortedRebalanceRatio) < numOfItems))
 			{
 				return true;
 			}
@@ -200,7 +192,7 @@ namespace kiwi
 	public:
 		virtual void compactAllSerial()
 		{
-			Chunk<K, V, Comparer> *c = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *c = skiplist.firstEntry().getValue();
 			while (c != nullptr)
 			{
 				c = rebalance(c);
@@ -211,8 +203,8 @@ namespace kiwi
 
 			while (c != nullptr)
 			{
-				Chunk::ItemsIterator *iter = c->itemsIterator();
-				Comparable prevKey = nullptr;
+				auto iter = c->itemsIterator();
+                K prevKey;
 				int prevVersion = 0;
 
 				if (iter->hasNext())
@@ -226,10 +218,10 @@ namespace kiwi
 				{
 					iter->next();
 
-					Comparable key = iter->getKey();
+					K key = iter->getKey();
 					int version = iter->getVersion();
 
-					int cmp = prevKey(key);
+					int cmp = compare(prevKey, key);
 					if (cmp >= 0)
 					{
 						throw IllegalStateException();
@@ -252,7 +244,7 @@ namespace kiwi
 			return;
 		}
 
-		virtual int scan(vector<V> &result, K min, K max)
+		virtual int scan(vector<V>& result, K min, K max)
 		{
 			// get current version and increment version (atomically) for this scan
 			// all items beyond my version are ignored by this scan
@@ -262,7 +254,7 @@ namespace kiwi
 
 
 			// find chunk matching min key, to start iterator there
-			Chunk<K, V, Comparer> *c = skiplist->floorEntry(min).getValue();
+			Chunk<K, V, Comparer> *c = skiplist.floorEntry(min).getValue();
 			c = iterateChunks(c, min);
 
 			int itemsCount = 0;
@@ -277,7 +269,7 @@ namespace kiwi
 				// help pending put ops set a version - and get in a sorted map for use in the scan iterator
 				// (so old put() op doesn't suddently set an old version this scan() needs to see,
 				//  but after the scan() passed it)
-				SortedMap<K, PutData<K, V>*> *items = c->helpPutInScan(myVer, min, max);
+				auto items = c->helpPutInScan(myVer, min, max);
 
 				itemsCount += c->copyValues(result, itemsCount, myVer, min, max, items);
 				c = c->next.getReference();
@@ -291,55 +283,36 @@ namespace kiwi
 
 		Chunk<K, V, Comparer> *getNext(Chunk<K, V, Comparer> *chunk) override
 		{
-			return chunk->next.getReference();
+			return chunk->next.load().getReference();
 		}
 
 		Chunk<K, V, Comparer> *getPrev(Chunk<K, V, Comparer> *chunk) override
 		{
 			return nullptr;
-	/*
-			Map.Entry<K, Chunk<K, V, Comparer>> kChunkEntry = skiplist.lowerEntry(chunk.minKey);
-			if(kChunkEntry == null) return null;
-			Chunk<Comparer, K,V> prev = kChunkEntry.getValue();
-	
-			while(true)
-			{
-				Chunk<Comparer, K,V> next = prev.next.getReference();
-				if(next == chunk) break;
-				if(next == null) {
-					prev = null;
-					break;
-				}
-	
-				prev = next;
-			}
-	
-			return prev;
-	*/
 		}
 
-		/// <summary>
-		/// fetch-and-add for the version counter. in a separate method because scan() ops need to use
-		/// thread-array for this, to make sure concurrent split/compaction ops are aware of the scan() 
-		/// </summary>
 	private:
+        /** 
+         * Fetch-and-add for the version counter. in a separate method because scan() ops need to use
+         * thread-array for this, to make sure concurrent split/compaction ops are aware of the scan() 
+         */
 		int newVersion(K min, K max)
 		{
 			// create new ScanData and publish it - in it the scan's version will be stored
-			ScanData *sd = new ScanData(min, max);
+			unique_ptr<ScanData<K>> sd = unique_ptr<ScanData<K>>(new ScanData<K>(min, max));
 			publishScan(sd);
 
 			// increment global version counter and get latest
-			int myVer = version->getAndIncrement();
+            int myVer = version.fetch_add(1);
 
 			// try to set it as this scan's version - return whatever is successfuly set
-			if (sd->version.compareAndSet(Chunk::NONE, myVer))
+			if (sd->version.compare_exchange_strong(Chunk<K, V, Comparer>::NONE, myVer))
 			{
 				return myVer;
 			}
 			else
 			{
-				return sd->version->get();
+                return sd->version.load();
 			}
 		}
 
@@ -353,7 +326,7 @@ namespace kiwi
 			// found chunk might be in split process, so not accurate
 			// since skiplist isn't updated atomically in split/compcation, our key might belong in the next chunk
 			// next chunk might itself already be split, we need to iterate the chunks until we find the correct one
-			while ((next != nullptr) && (next->minKey->compareTo(key) <= 0))
+			while ((next != nullptr) && (comapre(next->minKey, key) <= 0))
 			{
 				c = next;
 				next = c->next.getReference();
@@ -362,17 +335,18 @@ namespace kiwi
 			return c;
 		}
 
-		vector<ScanData*> getScansArray(int myVersion)
+		vector<ScanData<K>*> getScansArray(int myVersion)
 		{
-
-			vector<ScanData*> pScans(MAX_THREADS);
+            // TODO: You must not return a local variable, and thus you should choose a better type
+            // maybe ptr_vector
+			vector<ScanData<K>*> pScans (MAX_THREADS);
 			bool isIncremented = false;
 			int ver = -1;
 
 			// read all pending scans
 			for (int i = 0; i < MAX_THREADS; ++i)
 			{
-				ScanData *scan = scanArray[pad(i)];
+				ScanData<K> *scan = scanArray[pad(i)];
 				if (scan != nullptr)
 				{
 					pScans.push_back(scan);
@@ -382,47 +356,47 @@ namespace kiwi
 
 			for (auto sd : pScans)
 			{
-				if (sd->version->get() == Chunk::NONE)
+				if (sd->version.load() == Chunk<K, V, Comparer>::NONE)
 				{
 					if (!isIncremented)
 					{
 						// increments version only once
 						// if at least one pending scan has no version assigned
-						ver = version->getAndIncrement();
+						ver = version.fetch_add(1);
 						isIncremented = true;
 					}
 
-					sd->version.compareAndSet(Chunk::NONE,ver);
+					sd->version.compare_exchange_strong(Chunk<K, V, Comparer>::NONE,ver);
 				}
 			}
 
 			return pScans;
 		}
 
-		set<Integer> getScans(int myVersion)
+		set<int> getScans(int myVersion)
 		{
-			set<Integer> scans;
+			set<int> scans;
 
 			// go over thread data of all threads
 			for (int i = 0; i < MAX_THREADS; ++i)
 			{
 				// make sure data is for a Scan operation
-				ScanData *currScan = scanArray[pad(i)];
+				ScanData<K> *currScan = scanArray[pad(i)];
 				if (currScan == nullptr)
 				{
 					continue;
 				}
 
 				// if scan was published but didn't yet CAS its version - help it
-				if (currScan->version->get() == Chunk::NONE)
+				if (currScan->version.load() == Chunk<K, V, Comparer>::NONE)
 				{
 					// TODO: understand if we need to increment here
-					int ver = version->getAndIncrement();
-					currScan->version.compareAndSet(Chunk::NONE, ver);
+					int ver = version.fetch_add(1);
+					currScan->version.compare_exchange_strong(Chunk<K, V, Comparer>::NONE, ver);
 				}
 
 				// read the scan version (which is now set)
-				int verScan = currScan->version->get();
+				int verScan = currScan->version.load();
 				if (verScan < myVersion)
 				{
 					scans.insert(verScan);
@@ -434,7 +408,7 @@ namespace kiwi
 
 		Chunk<K, V, Comparer> *rebalance(Chunk<K, V, Comparer> *chunk)
 		{
-			Rebalancer<K, V> *rebalancer = new Rebalancer<K, V>(chunk, this);
+			auto rebalancer = make_shared<Rebalancer<K, V, Comparer>>(chunk, this);
 
 			rebalancer = rebalancer->engageChunks();
 
@@ -447,7 +421,7 @@ namespace kiwi
 			// before starting compaction -- check if another thread has completed this stage
 			if (!rebalancer->isCompacted())
 			{
-				ScanIndex<K> *index = updateAndGetPendingScans(version->get(), engaged);
+				ScanIndex<K> *index = updateAndGetPendingScans(version.load(), engaged);
 				rebalancer->compact(index);
 			}
 
@@ -462,32 +436,30 @@ namespace kiwi
 			return compacted[0];
 		}
 
-		ScanIndex *updateAndGetPendingScans(int currVersion, vector<Chunk<K, V, Comparer>*> &engaged)
+		ScanIndex<K> *updateAndGetPendingScans(int currVersion, vector<Chunk<K, V, Comparer>*> &engaged)
 		{
 			// TODO: implement versions selection by key
 			K minKey = engaged[0]->minKey;
 			Chunk<K, V, Comparer> *nextToRange = engaged[engaged.size() - 1]->next.getReference();
 			K maxKey = nextToRange == nullptr ? nullptr : nextToRange->minKey;
 
-			return new ScanIndex(getScansArray(currVersion), currVersion, minKey, maxKey);
+			return new ScanIndex<K>(getScansArray(currVersion), currVersion, minKey, maxKey);
 		}
 
 		void updateIndex(vector<Chunk<K, V, Comparer>*> &engagedChunks, vector<Chunk<K, V, Comparer>*> &compacted)
 		{
-			vector<Chunk<K, V, Comparer>*>::const_iterator iterEngaged = engagedChunks.begin();
-			vector<Chunk<K, V, Comparer>*>::const_iterator iterCompacted = compacted.begin();
+			auto iterEngaged = engagedChunks.begin();
+			auto iterCompacted = compacted.begin();
 
-//JAVA TO C++ CONVERTER TODO TASK: Java iterators are only converted within the context of 'while' and 'for' loops:
-			Chunk<K, V, Comparer> *firstEngaged = iterEngaged.next();
-//JAVA TO C++ CONVERTER TODO TASK: Java iterators are only converted within the context of 'while' and 'for' loops:
-			Chunk<K, V, Comparer> *firstCompacted = iterCompacted.next();
+            Chunk<K, V, Comparer> *firstEngaged = iterEngaged;
+            Chunk<K, V, Comparer> *firstCompacted = iterCompacted;
 
-			skiplist->replace(firstEngaged->minKey,firstEngaged, firstCompacted);
+			skiplist->replace(firstEngaged->minKey, firstEngaged, firstCompacted);
 
 			// update from infant to normal
 			firstCompacted->creator = nullptr;
-			Chunk::unsafe::storeFence();
-
+            atomic_thread_fence(memory_order_release); // TODO: verify it indeed equals to Chunk.unsafe.storeFence();
+            
 			// remove all old chunks from index.
 			// compacted chunks are still accessible through the first updated chunk
 			while (iterEngaged != engagedChunks.end())
@@ -503,13 +475,12 @@ namespace kiwi
 			while (iterCompacted != compacted.end())
 			{
 				Chunk<K, V, Comparer> *compactedToAdd = *iterCompacted;
+                
+                unique_lock<mutex> lock(_mutex); // TODO: verifiy it indeed equals to synchronized (compactedToAdd){...}
+                skiplist->putIfAbsent(compactedToAdd->minKey,compactedToAdd);
+                compactedToAdd->creator = nullptr;
+                unique_lock<mutex> unlock(_mutex);
 
-//JAVA TO C++ CONVERTER TODO TASK: Multithread locking is not converted to native C++ unless you choose one of the options on the 'Miscellaneous Options' dialog:
-				synchronized(compactedToAdd)
-				{
-					skiplist->putIfAbsent(compactedToAdd->minKey,compactedToAdd);
-					compactedToAdd->creator = nullptr;
-				}
 				iterCompacted++;
 			}
 		}
@@ -528,7 +499,7 @@ namespace kiwi
 			{
 				// start with first chunk (i.e., head)
 
-				unordered_map::Entry<K, Chunk<K, V, Comparer>*> *lowerEntry = skiplist->lowerEntry(firstEngaged->minKey);
+				auto *lowerEntry = skiplist->lowerEntry(firstEngaged->minKey);
 
 				Chunk<K, V, Comparer> *prev = lowerEntry != nullptr ? lowerEntry->getValue() : nullptr;
 				Chunk<K, V, Comparer> *curr = (prev != nullptr) ? prev->next.getReference() : nullptr;
@@ -562,7 +533,9 @@ namespace kiwi
 				// try to CAS prev chunk's next - from chunk (that we split) into c1
 				// c1 is the old chunk's replacement, and is already connected to c2
 				// c2 is already connected to old chunk's next - so all we need to do is this replacement
-				if ((prev->next.compareAndSet(firstEngaged, children[0], false, false)) || (!prev->next.isMarked()))
+				if (prev->next.compare_exchange_strong(MarkableReference<Chunk<K, V, Comparer>>(firstEngaged, false),
+                                                        MarkableReference<Chunk<K, V, Comparer>>(children[0], false)) ||
+                     (!prev->next.isMarked()))
 				{
 					// if we're successful, or we failed but prev is not marked - so it means someone else was successful
 					// then we're done with loop
@@ -584,12 +557,14 @@ namespace kiwi
 		/**
          * publish data into thread array - use null to clear 
          */
-		void publishScan(ScanData *data)
+		void publishScan(ScanData<K> *data)
 		{
+            // TODO: See Chunk comment
+            
 			// get index of current thread
 			// since thread IDs are increasing and changing, we assume threads are created one after another (sequential IDs).
 			// thus, (ThreadID % MAX_THREADS) will return a unique index for each thread in range [0, MAX_THREADS)
-			int idx = static_cast<int>(Thread::currentThread().getId() % MAX_THREADS);
+            int idx = 1; // static_cast<int>(Thread::currentThread().getId() % MAX_THREADS);
 
 			// publish into thread array
 			scanArray[pad(idx)] = data;
@@ -600,7 +575,7 @@ namespace kiwi
 		virtual int debugCountKeys()
 		{
 			int keys = 0;
-			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist.firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
@@ -625,7 +600,7 @@ namespace kiwi
 		virtual int debugCountDups()
 		{
 			int dups = 0;
-			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist.firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
@@ -636,38 +611,38 @@ namespace kiwi
 		}
 		virtual void debugPrint()
 		{
-			Chunk<K, V, Comparer> *chunk = skiplist->firstEntry().getValue();
+			Chunk<K, V, Comparer> *chunk = skiplist.firstEntry().getValue();
 
 			while (chunk != nullptr)
 			{
-				wcout << L"[ ";
+				cout << "[ ";
 				chunk->debugPrint();
-				wcout << L"]\t";
+				cout << "]\t";
 
 				chunk = chunk->next.getReference();
 			}
-			wcout << endl;
+			cout << "\n";
 		}
 
 		virtual void printDebugStats(DebugStats *ds)
 		{
-			wcout << L"Chunks count: " << ds->chunksCount << endl;
-			wcout << endl;
+			cout << "Chunks count: " << ds->chunksCount << "\n";
+			cout << "\n";
 
-			wcout << L"Sorted size: " << ds->sortedCells / ds->chunksCount << endl;
-			wcout << L"Item count: " << ds->itemCount / ds->chunksCount << endl;
-			wcout << L"Occupied count: " << ds->occupiedCells / ds->chunksCount << endl;
-			wcout << endl;
+			cout << "Sorted size: " << ds->sortedCells / ds->chunksCount << "\n";
+			cout << "Item count: " << ds->itemCount / ds->chunksCount << "\n";
+			cout << "Occupied count: " << ds->occupiedCells / ds->chunksCount << "\n";
+			cout << "\n";
 
-			wcout << L"Key jumps count: " << ds->jumpKeyCount / ds->chunksCount << endl;
-			wcout << L"Val jumps count: " << ds->jumpValCount / ds->chunksCount << endl;
-			wcout << endl;
+			cout << "Key jumps count: " << ds->jumpKeyCount / ds->chunksCount << "\n";
+			cout << "Val jumps count: " << ds->jumpValCount / ds->chunksCount << "\n";
+			cout << "\n";
 
-			wcout << L"Null items: " << ds->nulItemsCount / ds->chunksCount << endl;
-			wcout << L"Removed items: " << ds->removedItems / ds->chunksCount << endl;
+			cout << "Null items: " << ds->nulItemsCount / ds->chunksCount << "\n";
+			cout << "Removed items: " << ds->removedItems / ds->chunksCount << "\n";
 
-			wcout << L"Duplicates count: " << ds->duplicatesCount / ds->chunksCount << endl;
-			wcout << endl;
+			cout << "Duplicates count: " << ds->duplicatesCount / ds->chunksCount << "\n";
+			cout << "\n";
 
 		}
 
@@ -738,16 +713,16 @@ namespace kiwi
 
 
 
-			cout << "Number of chunks: " << chunks.size() << end;
-			cout << "Total number of elements: " << total << end;
-			cout << "Total number of null items: " << nullItems << end;
+			cout << "Number of chunks: " << chunks.size() << "\n";
+			cout << "Total number of elements: " << total << "\n";
+			cout << "Total number of null items: " << nullItems << "\n";
 			return duplicates;
 		}
 
 
 	};
     
-    template<typename K, typename V, class Comparer = less<K>>
+    template<typename K, typename V, class Comparer>
     int KiWi<K, V, Comparer>::RebalanceSize = 2;
 }
 

@@ -2,11 +2,13 @@
 #define ChunkIterator_h
 
 // Class forward declaration
-namespace kiwi { template<typename K, typename V> class Chunk; }
+namespace kiwi { template<typename K, typename V, class Comparer> class Chunk; }
+
+using namespace std;
 
 namespace kiwi
 {
-	template<typename K, typename V>
+	template<typename K, typename V, class Comparer = less<K>>
 	class ChunkIterator
 	{
 	public:

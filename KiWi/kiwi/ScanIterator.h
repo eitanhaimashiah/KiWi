@@ -1,21 +1,27 @@
 #ifndef ScanIterator_h
 #define ScanIterator_h
 
+#include <map>
+#include <iterator>
+
 #include "exceptionhelper.h"
+#include "Chunk.h"
 #include "PutData.h"
+
+using namespace std;
 
 namespace kiwi
 {
-	template<typename K, typename V>
-	class ScanIterator : public iterator<V>
+	template<typename K, typename V, class Comparer = less<K>>
+	class ScanIterator : public iterator<input_iterator_tag, V>
 	{
 	private:
-		const K maxKey; // max key (inclusive) for this scan - beyond it the iterator is finished
-		const int version; // version for this scan- larger versions are ignored
-		SortedMap<K, PutData<K, V>*> *const items; // items map - for items that are currently added (from thread-array)
-		Iterator<K> *const iter; // iterator over items map keys
+		const K maxKey;                         // max key (inclusive) for this scan - beyond it the iterator is finished
+		const int version;                      // version for this scan - larger versions are ignored
+		map<K, PutData> items;            // items map - for items that are currently added (from thread-array)
+		iterator<input_iterator_tag, K> iter;   // iterator over items map keys
 
-		Chunk<K, V, Comparer> *chunk; // current chunk, or 'null' if no more items from chunks
+		Chunk<K, V, Comparer>* chunk; // current chunk, or 'null' if no more items from chunks
 
 		K keyItems; // key of current item (next to be returned) in items map
 		K keyChunk; // key of current item from the chunks
@@ -23,14 +29,7 @@ namespace kiwi
 		V nextVal; // next value that should be returned, null if done
 
 	public:
-		virtual ~ScanIterator()
-		{
-			delete items;
-			delete iter;
-			delete chunk;
-		}
-
-		ScanIterator(K min, K max, int version, Chunk<K, V, Comparer> *chunk, SortedMap<K, PutData<K, V>*> *items) : maxKey(max), version(version), items(items), iter(items->keySet().begin())
+		ScanIterator(K min, K max, int version, Chunk<K, V, Comparer> *chunk, map<K, PutData> *items) : maxKey(max), version(version), items(items), iter(items->keySet().begin())
 		{
 
 			this->chunk = chunk;
@@ -56,7 +55,7 @@ namespace kiwi
 	private:
 		void handleChunksItem()
 		{
-			while (idxChunk == Chunk::NONE)
+			while (idxChunk == Chunk<K, V, Comparer>::NONE)
 			{
 				// proceed to next chunk
 				chunk = chunk->next.getReference();

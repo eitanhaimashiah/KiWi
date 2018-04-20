@@ -20,8 +20,8 @@
 //#include "../util/MarkableReference.h" // TODO: Check in Galios how they include such files
 
 // Class forward declarations
-namespace kiwi { template<typename K, typename V> class Rebalancer; }
-namespace kiwi { template<typename K, typename V> class MultiChunkIterator; }
+namespace kiwi { template<typename K, typename V, class Comparer> class Rebalancer; }
+namespace kiwi { template<typename K, typename V, class Comparer> class MultiChunkIterator; }
 
 using namespace std;
 
@@ -30,7 +30,7 @@ namespace kiwi
 	template<typename K, typename V, class Comparer = less<K>>
 	class Chunk
 	{
-        friend class  MultiChunkIterator<K, V>; // Friend class forward declaration
+        friend class  MultiChunkIterator<K, V, Comparer>; // Friend class forward declaration
         
     /***************	Nested Classes  	***************/
     public:
@@ -227,14 +227,15 @@ namespace kiwi
         
 	protected:
 		vector<void*> const dataArray;
-        int sortedCount; // # of sorted items at order-array's beginning (resulting from split)
         
 	public:
+        int sortedCount; // # of sorted items at order-array's beginning (resulting from split)
+        
 		K minKey; // minimal key that can be put in this chunk
         atomic<MarkableReference<Chunk<K, V, Comparer>>> next;     // TODO: Maybe I should replace it with std::pair
-		atomic<shared_ptr<Rebalancer<K, V>>> rebalancer; // TODO: shared_ptr has a solution from atomic, use it!
+		atomic<shared_ptr<Rebalancer<K, V, Comparer>>> rebalancer; // TODO: shared_ptr has a solution from atomic, use it!
 
-		unique_ptr<Chunk<K, V, Comparer>> creator; // in split/compact process, represents parent of split (can be null!)
+		shared_ptr<Chunk<K, V, Comparer>> creator; // in split/compact process, represents parent of split (can be null!)
         
          // TODO: Be sure that unique_ptr is right here.
          // In addition, probably atomic on vector is not a good practice.
@@ -247,7 +248,7 @@ namespace kiwi
          * @param minKey	minimal key to be placed in chunk, used by KiWi
          * @param dataItemSize	expected avg. size (in BYTES!) of items in data-array. can be an estimate
          */
-		Chunk(K minKey, int dataItemSize, Chunk<K, V, Comparer>& creator) :
+		Chunk(K minKey, int dataItemSize, shared_ptr<Chunk<K, V, Comparer>> creator) :
         orderArray(MAX_ITEMS * ORDER_SIZE + FIRST_ITEM), // allocate space for MAX_ITEMS, and add FIRST_ITEM (size of head) for order array
         dataArray(MAX_ITEMS + 1),
         orderIndex(FIRST_ITEM),
@@ -264,6 +265,8 @@ namespace kiwi
 		{
 			// TODO: allocate space for minKey inside chunk (pointed by skiplist)?
 		}
+        
+        virtual ~Chunk() {}
         
     /***************	Abstract Methods	***************/
     public:
@@ -300,7 +303,7 @@ namespace kiwi
         }
         
         // TODO: Check if K has compare() function
-        virtual int copyValues(vector<void*>& result, int const idx, int const myVer, K const min, K const max, map<K, PutData> const& items) = 0;
+        virtual int copyValues(vector<void*>& result, int const idx, int const myVer, const K min, const K max, map<K, PutData> const& items) = 0;
         
         /**
          * This method is used by scan operations (ONLY) to help pending put operations set a version
@@ -583,7 +586,7 @@ namespace kiwi
 
 		virtual bool isRebalanced()
 		{
-			shared_ptr<Rebalancer<K, V>> r = getRebalancer();
+			shared_ptr<Rebalancer<K, V, Comparer>> r = getRebalancer();
 			if (r == nullptr)
 			{
 				return false;
@@ -658,7 +661,7 @@ namespace kiwi
          * @param r a rebalancer to engage with
          * @return rebalancer engaged with the chunk
          */
-		virtual shared_ptr<Rebalancer<K, V>> engage(const shared_ptr<Rebalancer<K, V>>& r)
+		virtual shared_ptr<Rebalancer<K, V, Comparer>> engage(const shared_ptr<Rebalancer<K, V, Comparer>>& r)
 		{
             rebalancer.compare_exchange_strong(nullptr, r);
             return rebalancer.load();
@@ -669,7 +672,7 @@ namespace kiwi
          * @param r a rebalancer object. If r is null, verifies that the chunk is not engaged to any rebalancer
          * @return true if the chunk is engaged with r, false otherwise
          */
-		virtual bool isEngaged(const shared_ptr<Rebalancer<K, V>>& r)
+		virtual bool isEngaged(const shared_ptr<Rebalancer<K, V, Comparer>>& r)
 		{
 			return rebalancer.load() == r;
 		}
@@ -678,7 +681,7 @@ namespace kiwi
          * Fetches a rebalancer engaged with the chunk.
          * @return rebalancer object or null if not engaged.
          */
-		virtual shared_ptr<Rebalancer<K, V>> getRebalancer()
+		virtual shared_ptr<Rebalancer<K, V, Comparer>> getRebalancer()
 		{
 			return rebalancer.load();
 		}
@@ -842,7 +845,7 @@ namespace kiwi
 		}
 
         /** finds and returns the value for the given key, or 'null' if no such key exists */
-		virtual V find(K key, const shared_ptr<PutData>& item)
+		virtual V* find(K key, const shared_ptr<PutData>& item)
 		{
 			// binary search sorted part of order-array to quickly find node to start search at
 			// it finds previous-to-key so start with its next

@@ -1,21 +1,16 @@
 #include "KiWiMapVLK.h"
-#include "KiWi.h"
 
 namespace kiwi
 {
-	using sun::reflect::generics::reflectiveObjects::NotImplementedException;
+    KiWiMapVLK::KiWiMapVLK() {
+//    : kiwi(KiWi<Cell, Cell>(unique_ptr<ChunkCell>(new ChunkCell)))
+        kiwi = KiWi<Cell, Cell>(unique_ptr<Chunk<Cell, Cell>>(new ChunkCell()));
+    }
 
-	KiWiMapVLK::KiWiMapVLK()
+	int KiWiMapVLK::putIfAbsent(int k, int v)
 	{
-		ChunkCell tempVar();
-		this->kiwi = new KiWi<Cell*, Cell*>(&tempVar);
-	}
-
-	Integer KiWiMapVLK::putIfAbsent(Integer k, Integer v)
-	{
-
-		kiwi->put(cellFromInt(k), cellFromInt(v));
-		return nullptr;
+		kiwi.put(cellFromInt(k), cellFromInt(v));
+		return 0;
 	}
 
 	int KiWiMapVLK::size()
@@ -28,86 +23,81 @@ namespace kiwi
 		return false;
 	}
 
-	Integer KiWiMapVLK::get(void *o)
+	int KiWiMapVLK::get(int k)
 	{
-		return cellToInt(kiwi->get(cellFromInt(static_cast<Integer>(o))));
+		return cellToInt(kiwi.get(cellFromInt(k)));
 	}
 
-	Integer KiWiMapVLK::put(Integer k, Integer v)
+	int KiWiMapVLK::put(int k, int v)
 	{
-		kiwi->put(cellFromInt(k), cellFromInt(v));
-		return nullptr;
+		kiwi.put(cellFromInt(k), cellFromInt(v));
+		return 0;
 	}
 
-	Integer KiWiMapVLK::remove(void *o)
+	int KiWiMapVLK::remove(int k)
 	{
-		kiwi->put(cellFromInt(static_cast<Integer>(o)), nullptr);
-		return nullptr;
+		kiwi.put(cellFromInt(k), cellFromInt(-1)); // TODO: Should replace -1 with nullptr (maybe value type should be ptr)
+		return 0;
 	}
 
-template<typename T1, typename T1>
-//JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
-//ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-	void KiWiMapVLK::putAll(unordered_map<T1> map)
+	void KiWiMapVLK::putAll(map<int, int> map)
 	{
 		throw NotImplementedException();
 	}
 
-	int KiWiMapVLK::getRange(vector<Integer> &result, Integer min, Integer max)
+	int KiWiMapVLK::getRange(vector<int> &result, int min, int max)
 	{
 		throw NotImplementedException();
 	}
 
-	bool KiWiMapVLK::containsKey(void *o)
+	bool KiWiMapVLK::containsKey(int k)
 	{
-		return get(cellFromInt(static_cast<Integer>(o))) != nullptr;
+		return get(k) != -1; // TODO: Should replace -1 with nullptr (maybe value type should be ptr)
 	}
 
 	void KiWiMapVLK::clear()
 	{
-		//this.kiwi.debugPrint();
-		ChunkCell tempVar();
-		this->kiwi = new KiWi<Cell*, Cell*>(&tempVar);
+		kiwi = KiWi<Cell, Cell>(new ChunkCell);
 	}
 
-	Set<Integer> *KiWiMapVLK::keySet()
+	set<int> *KiWiMapVLK::keySet()
 	{
 		throw NotImplementedException();
 	}
 
-	Collection<Integer> *KiWiMapVLK::values()
+	set<int> *KiWiMapVLK::values()
 	{
 		throw NotImplementedException();
 	}
 
-	Set<Entry<Integer, Integer>*> *KiWiMapVLK::entrySet()
+	set<pair<int, int>> KiWiMapVLK::entrySet()
 	{
 		throw NotImplementedException();
 	}
 
-	bool KiWiMapVLK::containsValue(void *o)
+	bool KiWiMapVLK::containsValue(int v)
 	{
-		return (get(cellFromInt(static_cast<Integer>(o))) != nullptr);
+		return get(v) != -1; // TODO: Should replace -1 with nullptr (maybe value type should be ptr)
 	}
 
-	Cell *KiWiMapVLK::cellFromInt(Integer n)
+	Cell KiWiMapVLK::cellFromInt(int n)
 	{
 		vector<char> b(4);
 
 		// write int data as bytes into data-array
-		b[0] = static_cast<char>(static_cast<int>(static_cast<unsigned int>(n) >> 24));
-		b[1] = static_cast<char>(static_cast<int>(static_cast<unsigned int>(n) >> 16));
-		b[2] = static_cast<char>(static_cast<int>(static_cast<unsigned int>(n) >> 8));
-		b[3] = static_cast<char>(n.intValue());
+		b[0] = static_cast<char>(n >> 24);
+		b[1] = static_cast<char>(n >> 16);
+		b[2] = static_cast<char>(n >> 8);
+		b[3] = static_cast<char>(n);
 
-		return new Cell(b, 0, 4);
+		return Cell(b, 0, 4); // TODO: propbablt it's not valid
 	}
 
-	Integer KiWiMapVLK::cellToInt(Cell *c)
+	int KiWiMapVLK::cellToInt(Cell *c)
 	{
 		if (c == nullptr)
 		{
-			return nullptr;
+			return -1; // TODO: Should replace -1 with nullptr (maybe value type should be ptr)
 		}
 
 		vector<char> b = c->getBytes();
@@ -120,6 +110,6 @@ template<typename T1, typename T1>
 
 	void KiWiMapVLK::debugPrint()
 	{
-		kiwi->debugPrint();
+		kiwi.debugPrint();
 	}
 }

@@ -8,6 +8,7 @@ using namespace std;
 
 namespace kiwi
 {
+    using byte = unsigned char;
 
 	class Cell
 	{
@@ -22,9 +23,11 @@ namespace kiwi
 	public:
 		Cell(vector<char> &bytes, int off, int len);
 
-		virtual vector<char> getBytes();
-		virtual int getOffset();
-		virtual int getLength();
+		virtual vector<char> getBytes() const;
+		virtual int getOffset() const;
+		virtual int getLength() const;
+        
+        bool operator<(const Cell& other);        
         
 //		string toString() ;
 //        bool equals(void *obj) ;

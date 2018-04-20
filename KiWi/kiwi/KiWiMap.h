@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <map>
+#include <set>
+#include <utility>
+#include <memory>
 
 #include "KiWi.h"
 #include "ChunkInt.h"
@@ -32,14 +35,14 @@ namespace kiwi
 		int size() override;
 
         /** not implemented ATM - can be implemented with chunk.findFirst() */
-		bool isEmpty() override;
+		bool isEmpty();
 
-		int get(void *o) override;
+		int* get(int k);
 
-		int put(int k, int v) override;
+		int put(int k, int v);
 
-        /** same as put(key,null) - which signifies to KiWi that the item is removed */
-		int remove(void *o) override;
+        /** same as put(key,null) - which signifies to KiWi that the item i removed */
+		int remove(int k);
 
 		int getRange(vector<int> &result, int min, int max) override;
 
@@ -47,22 +50,22 @@ namespace kiwi
 		void putAll(map<int, int> map);
 
         /** Same as get(key) != null **/
-		bool containsKey(void *o) override;
+		bool containsKey(int k);
 
         /** Clear is not really an option (can be implemented non-safe inside KiWi) - we just create new kiwi **/
 		void clear() override;
 
         /** Not implemented - can scan all & return keys **/
-		Set<int> *keySet() override;
+		set<int> *keySet();
 
         /** Not implemented - can scan all & return values **/
-		Collection<int> *values() override;
+		set<int> *values();
 
         /** Not implemented - can scan all & create entries **/
-		Set<Entry<int, int>*> *entrySet() override;
+		set<pair<int, int>> entrySet();
 
         /** Not implemented - can scan all & search **/
-		bool containsValue(void *o) override;
+		bool containsValue(int v);
 
 		virtual void compactAllSerial();
 		virtual int debugCountDups();

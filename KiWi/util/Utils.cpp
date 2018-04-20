@@ -4,19 +4,15 @@ namespace util
 {
     int Utils::nextInt(int upper)
     {
-        static random_device rd;
-        static default_random_engine gen (rd());
-        static uniform_int_distribution<int> dis (0, upper-1);
-        
+        static thread_local default_random_engine gen;
+        uniform_int_distribution<int> dis (0, upper-1);
         return dis(gen);
     }
 
     double Utils::nextDouble()
     {
-        static random_device rd;
-        static default_random_engine gen (rd());
-        static uniform_real_distribution<double> dis;
-        
+        static thread_local default_random_engine gen;
+        uniform_real_distribution<double> dis;
         return dis(gen);
     }
     

@@ -1,14 +1,15 @@
 #ifndef KiWiMapChunkProf_h
 #define KiWiMapChunkProf_h
 
-#include "KiWiMap.h"
 #include <string>
+#include <mutex>
+
+#include "KiWiMap.h"
 #include "exceptionhelper.h"
 #include "stringbuilder.h"
 #include "tangible_filesystem.h"
-
-//JAVA TO C++ CONVERTER NOTE: Forward class declarations:
-namespace kiwi { class DebugStats; }
+#include "Parameters.h"
+#include "DebugStats.h"
 
 using namespace std;
 
@@ -18,32 +19,23 @@ namespace kiwi
 	{
 
 	private:
-		AtomicInteger *const opsDone = new AtomicInteger(0);
-		const int opsPerSnap = Parameters::range / 20;
+        atomic<int> opsDone;
+        const int opsPerSnap;
 
-		int snapCount = 0;
-		int totalOps = 0;
+        int snapCount;
+        int totalOps;
 
-		static const wstring profDirPath;
-		static const wstring profFileName;
+		static const string profDirPath;
+		static const string profFileName;
 
+        mutex _mutex;
 	public:
-		BufferedWriter *writer = nullptr;
+        BufferedWriter *writer;
 
 	private:
 		File *outFile;
 
-//JAVA TO C++ CONVERTER TODO TASK: 'volatile' has a different meaning in C++:
-//ORIGINAL LINE: private volatile boolean isUnderSnapshot = false;
-		bool isUnderSnapshot = false;
-
-	public:
-		virtual ~KiWiMapChunkProf()
-		{
-			delete opsDone;
-			delete writer;
-			delete outFile;
-		}
+		bool isUnderSnapshot; // TODO: originally, it has volatile, what's the equivalent in C++?
 
 	private:
 		void trySnapshot();
@@ -54,9 +46,9 @@ namespace kiwi
 
 	public:
 		KiWiMapChunkProf();
-		Integer put(Integer key, Integer val) override;
+		int put(int key, int val) override;
 
-		Integer remove(void *key) override;
+		int remove(void *key) override;
 	};
 
 }

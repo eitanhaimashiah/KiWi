@@ -10,7 +10,7 @@ using namespace std;
 
 namespace kiwi
 {
-	template<typename K, typename V>
+	template<typename K, typename V, class Comparer = less<K>>
 	class MultiChunkIterator
 	{
         using typename Chunk<K, V, Comparer>::ItemsIterator;

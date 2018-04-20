@@ -1,6 +1,7 @@
 #ifndef ChunkInt_h
 #define ChunkInt_h
 
+#include <map>
 #include <vector>
 #include <atomic>
 #include "Chunk.h"
@@ -11,6 +12,8 @@ namespace kiwi
 {
 	class ChunkInt : public Chunk<int, int>
 	{
+        using Chunk<int, int>::Chunk;
+        
 	private:
         static atomic<int> nextChunk;
 		static vector<ChunkInt> chunks;
@@ -23,17 +26,19 @@ namespace kiwi
 
 	public:
 		ChunkInt();
-		ChunkInt(int minKey, ChunkInt *creator);
-		Chunk<Integer, Integer> *newChunk(Integer minKey) override;
+        ~ChunkInt() {}
+        
+		ChunkInt(int minKey, shared_ptr<ChunkInt> creator);
+		Chunk<int, int> *newChunk(int minKey);
 
-		int readKey(int orderIndex) override;
-		void *readData(int oi, int di) override;
+		int readKey(int orderIndex);
+		void *readData(int oi, int di);
 
-		int copyValues(vector<void*> &result, int idx, int myVer, Integer min, Integer max, SortedMap<Integer, PutData<Integer, Integer>*> *items) override;
+		int copyValues(vector<void*> &result, int idx, int myVer, const int min, const int max, map<int, PutData> const& items);
 
-		int allocate(Integer key, Integer data) override;
+		int allocate(int key, int data);
 
-		int allocateSerial(int key, Integer data) override;
+		int allocateSerial(int key, int data);
 
 	};
 }

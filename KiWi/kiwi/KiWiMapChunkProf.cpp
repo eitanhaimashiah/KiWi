@@ -1,43 +1,40 @@
-
-
 #include "KiWiMapChunkProf.h"
-#include "DebugStats.h"
 
 namespace kiwi
 {
 
-const wstring KiWiMapChunkProf::profDirPath = wstring(L"./../output/data");
-const wstring KiWiMapChunkProf::profFileName = L"chunkStat.csv";
+const string KiWiMapChunkProf::profDirPath = "./../output/data";
+const string KiWiMapChunkProf::profFileName = "chunkStat.csv";
 
+    KiWiMapChunkProf::KiWiMapChunkProf() :
+    opsDone(0), opsPerSnap(Parameters::range / 20), snapCount(0), totalOps(0), writer(nullptr), isUnderSnapshot(false) {}
+    
 	void KiWiMapChunkProf::trySnapshot()
 	{
 
-		int currOps = opsDone->getAndIncrement();
+        int currOps = opsDone.fetch_add(1);
 
 		if (currOps >= opsPerSnap)
 		{
-//JAVA TO C++ CONVERTER TODO TASK: Multithread locking is not converted to native C++ unless you choose one of the options on the 'Miscellaneous Options' dialog:
-			synchronized(this)
-			{
-				currOps = opsDone->get();
-
-				if (currOps < opsPerSnap)
-				{
-					return;
-				}
-
-				isUnderSnapshot = true;
-
-				totalOps += currOps;
-				snapCount++;
-
-				printStatsLine(kiwi->calcChunkStatistics());
-
-				opsDone->set(0);
-
-				isUnderSnapshot = false;
-
-			}
+            unique_lock<mutex> lock(_mutex);
+            currOps = opsDone.load();
+            
+            if (currOps < opsPerSnap)
+            {
+                return;
+            }
+            
+            isUnderSnapshot = true;
+            
+            totalOps += currOps;
+            snapCount++;
+            
+            printStatsLine(kiwi.calcChunkStatistics());
+            
+            opsDone.store(0);
+            
+            isUnderSnapshot = false;
+            unique_lock<mutex> unlock(_mutex);
 		}
 	}
 
@@ -45,7 +42,7 @@ const wstring KiWiMapChunkProf::profFileName = L"chunkStat.csv";
 	{
 		try
 		{
-			writer->write(L"FillType\tOps\tTotalItems\tChunks\tSorted\tChunkItems\tOccupied\tDuplicates\tNulls\tRemoved\tKeyJumps\tValJumps");
+			writer->write("FillType\tOps\tTotalItems\tChunks\tSorted\tChunkItems\tOccupied\tDuplicates\tNulls\tRemoved\tKeyJumps\tValJumps");
 			writer->newLine();
 
 		}
@@ -111,7 +108,7 @@ const wstring KiWiMapChunkProf::profFileName = L"chunkStat.csv";
 
 	}
 
-	Integer KiWiMapChunkProf::put(Integer key, Integer val)
+	int KiWiMapChunkProf::put(int key, int val)
 	{
 		// busy wait here
 		while (isUnderSnapshot)
@@ -127,7 +124,7 @@ const wstring KiWiMapChunkProf::profFileName = L"chunkStat.csv";
 
 	}
 
-	Integer KiWiMapChunkProf::remove(void *key)
+	int KiWiMapChunkProf::remove(void *key)
 	{
 		// busy wait here
 		while (isUnderSnapshot)

@@ -9,20 +9,28 @@ namespace kiwi
 	{
 	}
 
-	vector<char> Cell::getBytes()
+	vector<char> Cell::getBytes() const
 	{
 		return bytes;
 	}
 
-	int Cell::getOffset()
+	int Cell::getOffset() const
 	{
 		return offset;
 	}
 
-	int Cell::getLength()
+	int Cell::getLength() const
 	{
 		return length;
 	}
+
+    //bool compare(const Cell& lhs, const Cell& rhs)
+    bool Cell::operator<(const Cell& other)
+    {
+        if (getLength() != other.getLength())
+            return getLength() > other.getLength()? 1 : -1;
+        return 1; // TODO: find the suitable function to comapre byte buffers (strcmp?..)
+    }
 
 //	string Cell::toString()
 //	{

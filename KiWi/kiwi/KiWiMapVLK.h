@@ -1,8 +1,14 @@
 #ifndef KiWiMapVLK_h
 #define KiWiMapVLK_h
 
-#include <unordered_map>
+#include <set>
+#include <map>
 #include <vector>
+#include <utility>
+#include <memory>
+
+#include "ChunkCell.h"
+#include "CompositionalMap.h"
 #include "exceptionhelper.h"
 #include "KiWi.h"
 
@@ -10,71 +16,54 @@ using namespace std;
 
 namespace kiwi
 {
-	/// <summary>
-	/// Created by msulamy on 7/27/15.
-	/// </summary>
-	class KiWiMapVLK : public CompositionalMap<Integer, Integer>
+	class KiWiMapVLK : public CompositionalMap<int, int>
 	{
     /***************	Members				***************/
 	private:
-		KiWi<Cell*, Cell*> *kiwi;
+		KiWi<Cell, Cell> kiwi;
 
     /***************	Constructors		***************/
 	public:
-		virtual ~KiWiMapVLK()
-		{
-			delete kiwi;
-		}
-
 		KiWiMapVLK();
 
     /***************	Methods				***************/
 
-		Integer putIfAbsent(Integer k, Integer v) override;
+		int putIfAbsent(int k, int v) override;
 
 		int size() override;
-		bool isEmpty() override;
+        bool isEmpty();
 
-		Integer get(void *o) override;
+        int get(int k);
 
-		Integer put(Integer k, Integer v) override;
+		int put(int k, int v);
 
-		Integer remove(void *o) override;
+		int remove(int k);
 
-		template<typename T1, typename T1>
-//JAVA TO C++ CONVERTER TODO TASK: There is no native C++ template equivalent to this generic constraint:
-//ORIGINAL LINE: @Override public void putAll(java.util.Map<? extends Integer, ? extends Integer> map)
-		void putAll(unordered_map<T1> map);
+		void putAll(map<int, int> map);
 
-		int getRange(vector<Integer> &result, Integer min, Integer max) override;
+		int getRange(vector<int> &result, int min, int max) override;
 
-		/// <summary>
-		/// Same as get(key) != null * </summary>
-		bool containsKey(void *o) override;
+        /** Same as get(key) != null **/
+		bool containsKey(int k);
 
-		/// <summary>
-		/// Not supported - can be implemented in a non-safe manner * </summary>
+        /** Not supported - can be implemented in a non-safe manner **/
 		void clear() override;
 
-		/// <summary>
-		/// Scan all & return keys * </summary>
-		Set<Integer> *keySet() override;
+        /** Scan all & return keys **/
+		set<int> *keySet();
 
-		/// <summary>
-		/// Scan all & return values * </summary>
-		Collection<Integer> *values() override;
+        /** Scan all & return values **/
+		set<int> *values();
 
-		/// <summary>
-		/// Scan all & create entries * </summary>
-		Set<Entry<Integer, Integer>*> *entrySet() override;
+        /** Scan all & create entries **/
+		set<pair<int, int>> entrySet();
 
-		/// <summary>
-		/// Scan all & search * </summary>
-		bool containsValue(void *o) override;
+        /** Scan all & search **/
+		bool containsValue(int v);
 
 	private:
-		Cell *cellFromInt(Integer n);
-		Integer cellToInt(Cell *c);
+		Cell cellFromInt(int n);
+		int cellToInt(Cell *c);
 
 	public:
 		virtual void debugPrint();

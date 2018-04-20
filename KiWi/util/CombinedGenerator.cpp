@@ -7,7 +7,7 @@ namespace util
 	{
 		assert(prefixValues.size() > 0);
 
-		prefixes = vector<Integer>(prefixValues.size());
+		prefixes = vector<int>(prefixValues.size());
 		suffixMap = unordered_map<>(prefixValues.size());
 
 		for (auto val : prefixValues)
@@ -28,7 +28,7 @@ namespace util
 	int CombinedGenerator::next()
 	{
         int randIdx = Utils::nextInt(idx + 1);
-		Integer prefix = prefixes[randIdx];
+		int prefix = prefixes[randIdx];
 
 		UniqueRandomIntGenerator *gen = suffixMap[prefix];
 		int suffix = gen->next();
